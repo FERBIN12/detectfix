@@ -1,0 +1,21 @@
+Work only inside ~/hackachusetts/video. Read FACTS2.md. Write video/script2.json: narration for a 3 minute 15 second film
+(about 470-500 words) for hackathon judges. JSON list of [id, text]; one or two short spoken sentences per line (5-24 words).
+Use ONLY facts and numbers in FACTS2.md; say "our estimate" for every (est.) number. Calm, confident documentary narrator,
+first person plural ("we"). No hype words. It must flow as a story with clear transitions between acts. Acts and ids:
+ o1-o2  COLD OPEN: one striking line each (a bridge 61,200 cars cross daily stands on foundations nobody can see).
+ p1-p5  PAIN: 778 bridges need underwater inspection; 123 scour critical, 1.6 million vehicles a day; MassDOT has 7 divers;
+        a dive-team day costs 6.8 to 10.8 thousand dollars; floods are when scour matters and nobody can dive.
+ i1-i3  INSIGHT: the FHWA rule (sonar only supplements divers) and the dam inspector quote -> divers stay, the robot goes first,
+        divers only where the map says.
+ s1-s3  WHAT IS ISAAC SIM and our digital twin of the Charles River Dam crossing; real ArduPilot autopilots inside; ROS 2.
+ d1-d3  DRONE above (lidar, camera, simulated thermal; GPS 12 -> 7 under the deck).
+ r1-r3  ROV below (no GPS, DVL drift 0.4 m over 60 m, sonar).
+ t1-t3  TOGETHER: waterline handoff (4 flagged, 4 inspected) and one 3D model (point counts).
+ k1-k5  THE AI, BUILT WITH KIRO: say what Kiro is in one phrase; Megha built the detection pipeline + dashboard with Kiro
+        (YOLOv8 segmentation, retrace into lidar, rule-based severity, report agent that cites a detection for every claim,
+        engineer signs off); the statewide triage of 5,252 bridges and its number 1; Kiro also wrote parts of the robot software.
+ m1-m3  MONEY: dive only vs robot first (20-30% less, our estimate); the 16,448 dollar kit vs 35k-385k sonar systems;
+        how we charge (survey, software per agency).
+ w1-w3  WHY NOW: SNBI deadline 15 March 2028; STIC and AID money; New Hampshire already testing ROVs.
+ c1-c2  CLOSE: the 10-bridge pilot checked against divers; final line "Robot first. Divers only where the map says."
+Write numbers as digits except write "4 of 9" style ratings in words. Valid JSON. Print the word count when done.

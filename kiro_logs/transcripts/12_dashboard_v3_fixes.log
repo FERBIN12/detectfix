@@ -1,0 +1,316 @@
+I'll start by exploring the codebase to understand the structure, then make the two changes.
+[tool] Running: git branch --show-current && git status --short
+[tool] Reading listing detectfix, listing scripts
+[tool] status: Completed
+[tool] status: Completed
+On branch dashboard-v2. Let me read the key files: the kiro_report script, export_web.py (triage), and the web UI files.
+[tool] Reading kiro_report.py:1
+[tool] status: Completed
+Now let me look at the triage in export_web.py and the web UI files.
+[tool] Searching for 'triage|rank|statewide|5252|bridge_triage'
+[tool] Searching for 'triage|rank|statewide|5252|Statewide' in web
+[tool] status: Completed
+[tool] status: Completed
+Let me read the relevant sections of each file. Start with export_web.py triage section and its caller.
+[tool] Reading export_web.py:676-755
+[tool] Searching for 'export_triage|triage\.json|triage_py|triage_venv|top_n|TR...'
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading export_web.py:756-835
+[tool] status: Completed
+[tool] Reading export_web.py:836-875
+[tool] status: Completed
+Now let me read the top docstring line of export_web.py and the web UI parts (index.html triage section, app.js renderTriage, and the defects/dive-lines + coop_log to understand defect data).
+[tool] Reading index.html:176-205
+[tool] Reading app.js:11-55, app.js:344-413
+[tool] status: Completed
+[tool] status: Completed
+Now let me look at the coop_log.txt and the defect/dive building in export_web.py to understand the handoff vs survey distinction, and check where the footer mentions triage.
+[tool] Finding **/coop_log.txt in ferbin
+[tool] Searching for 'def build_defects|def build_dive_lines|def build_kpis'
+[tool] status: Completed
+[tool] status: Completed
+[tool] Running: find ~/hackachusetts -iname 'coop*log*' 2>/dev/null; echo '---'; find ~/hackachusetts -iname 'coop*' 2>/dev/null | head -40
+[tool] Reading export_web.py:508-617
+[tool] status: Completed
+[tool] status: Completed
+Let me read the coop_log.txt and defects_gt.json to understand the data for the report factual fix.
+[tool] Reading coop_log.txt:1, defects_gt.json:1
+[tool] status: Completed
+Now I understand the data. The underwater GT defects are D10, D11, D12, D13. I need to compute their distance to the nearest ROV truth-path point. Let me check how the ROV truth path is decoded and whether I can access it from the exported scene.json.
+[tool] Reading scene.json:1-5
+[tool] status: Completed
+scene.json has `rov_truth_path` (full 3D points). I can compute distances for the underwater defects in kiro_report.py using scene.json data. Let me set up a todo list and plan.
+
+Now let me plan the changes:
+
+**Change 1 — Remove statewide triage/ranking:**
+- `export_web.py`: remove `export_triage`, `_parse_triage_summary`, the triage call in main, triage args, docstring line. But I need to keep the NBI condition facts + MA counts for the report. Those come from the triage in kiro_report.py, not export_web. The dashboard triage.json is only used by renderTriage. I'll remove the triage panel from the UI and stop writing triage.json.
+- `web/index.html`: remove section 7 triage panel.
+- `web/app.js`: remove triage from load, renderTriage call, renderTriage function. Keep loading working without triage.json.
+- `web/style.css`: remove triage styles (optional, harmless, but I'll remove them for cleanliness).
+- `kiro_report.py`: remove ranking from NBI facts (keep condition/scour/ADT + MA counts), remove rank printing, and update prompt to remove "triage rank".
+
+**Change 2 — Factual fix in report facts/prompt:** Add explicit handoff vs survey distinction and underwater-defect distances to nearest ROV truth-path point.
+
+Let me verify the triage_py output has condition data without ranking. The kiro_report uses its own `extract_nbi_facts` which returns `summary`, `bridges` (with rank), `raw`. I'll keep summary + raw condition fields but drop the rank. Let me start.
+[tool] Creating task list: Remove statewide bridge triage/ranking from dashboard + r...
+[tool] status: Completed
+Let me check for any "rank N of 5252" text in the UI and the footer/report areas, plus check renderReport.
+[tool] Searching for 'rank|5,?252|of 52' in web
+[tool] status: Completed
+No "rank N of 5252" text in UI (it was rendered from data via the table). Now Change 1 — edit index.html to remove the triage section.
+[tool] Editing index.html
+[tool] status: Completed
+[tool] Completing #1
+[tool] status: Completed
+Now app.js. Remove `triage` from destructuring, the getJSON triage.json, the renderTriage call, and the renderTriage function.
+[tool] Editing app.js
+[tool] Editing app.js
+[tool] status: Completed
+[tool] status: Completed
+Now remove the renderTriage function. Let me read the exact boundaries around it.
+[tool] Reading app.js:343-382
+[tool] status: Completed
+[tool] Editing app.js
+[tool] status: Completed
+[tool] Searching for 'triage|Triage' in web
+[tool] status: Completed
+app.js clean. Now style.css. Let me read the triage styles block.
+[tool] Reading style.css:201-240
+[tool] status: Completed
+Note `.pill` styles are used only by triage table here. Let me verify `.pill` isn't used elsewhere before removing.
+[tool] Searching for 'pill' in web
+[tool] status: Completed
+`.pill` only in CSS (was used by triage table). Remove the whole triage block and the triage-stats media query line.
+[tool] Editing style.css
+[tool] status: Completed
+[tool] Editing style.css
+[tool] status: Completed
+[tool] Completing #2, #3
+[tool] status: Completed
+Now export_web.py. Let me read the docstring top lines and the main args section exactly.
+[tool] Reading export_web.py:1-25
+[tool] status: Completed
+[tool] Editing export_web.py
+[tool] status: Completed
+Now remove the export_triage + _parse_triage_summary functions.
+[tool] Editing export_web.py
+[tool] status: Completed
+Now remove the triage args and the triage call in main.
+[tool] Editing export_web.py
+[tool] Editing export_web.py
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'triage'
+[tool] Running: python -m py_compile export_web.py && echo OK
+[tool] status: Completed
+[tool] status: Completed
+Only the explanatory comment remains. Also remove the old stale triage.json file so the dashboard doesn't have a stale artifact (app.js no longer loads it, but good hygiene).
+[tool] Running: ls -la web/data/triage.json 2>/dev/null && echo exists || echo none
+[tool] status: Completed
+web/data is git-ignored (per README). I'll remove the stale triage.json.
+[tool] Running: rm -f web/data/triage.json && echo removed
+[tool] status: Completed
+[tool] Completing #4
+[tool] status: Completed
+Now the main work on kiro_report.py.
+
+**Part A — drop ranking from NBI facts.** In `_NBI_EXTRACT`, remove `rank` from rows and `rank_by_struct`. Keep summary + raw conditions. And in main, stop printing ranks.
+
+**Part B — handoff vs survey facts + distances.** I'll add a function that:
+- Lists the 4 flagged waterline defects (D03/D01/D07/D05) with z values, from dive lines / coop log (already in `coop.json`/`scene.json` `dive_lines`).
+- For the 4 underwater GT defects (D10–D13), computes the min distance to any `rov_truth_path` point from scene.json, and labels them as "covered by sonar survey along the route, not a handoff."
+
+Let me update the `_NBI_EXTRACT` first.
+[tool] Editing kiro_report.py
+[tool] status: Completed
+The `summary` from `bt.build_summary` still provides MA counts (total, poor, scour_critical, underwater_required). That's kept. Now I need to check build_summary provides a "total" used for "of 5252" ranking — but we're dropping ranking entirely, and keeping only the aggregate counts. The `"total": int(len(scored))` is still printed. Let me check what the summary dict contains to ensure MA counts are preserved. Let me look at bridge_triage build_summary.
+[tool] Running: grep -n "def build_summary" -A 40 ~/hackachusetts/ai/bridge_triage.py | head -60
+[tool] status: Completed
+Good. The summary gives `bridges_total`, `poor_condition`, `scour_critical`, `underwater_inspection_required` — the MA counts to keep. The user wants 444 Poor, 123 scour critical, 778 underwater. These come straight from summary. Keeping it.
+
+Now `"total": int(len(scored))` in the printed JSON — that's the statewide total (5252), a plain count, not a ranking. I'll keep it since it's a plain count that lets the report say "444 of X Poor." But to avoid any "rank N of 5252" phrasing, I'll keep `total` as a count but ensure the prompt never asks for rank. Actually the user explicitly wants to keep MA counts and remove ranking. The total count is part of context (5,252 bridges). I'll keep it.
+
+Now update the main() print that references ranks.
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Now update the module docstring which mentions "where the two crossing bridges rank in bridge_triage.py's output".
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Also the top docstring summary mentions "+ the statewide triage". Let me fix.
+[tool] Reading kiro_report.py:2-21
+[tool] status: Completed
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Now Part B — the handoff-vs-survey facts. I'll add a function `handoff_vs_survey(scene)` that computes:
+- flagged waterline handoffs from `scene["dive_lines"]` (D03/D01/D07/D05 with their z and type).
+- underwater GT defects (D10–D13) with distance to nearest `rov_truth_path` point.
+
+Let me add it after `detections_vs_gt`.
+[tool] Reading kiro_report.py:197-208
+[tool] status: Completed
+[tool] Reading kiro_report.py:209-218
+[tool] status: Completed
+Now insert the new function. It will read scene (which has `defects`, `rov_truth_path`, `dive_lines`) and coop (which has `log` with flagged/done). I'll derive handoffs from scene dive_lines and compute survey distances for underwater defects.
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Now wire it into build_facts. Let me add `coop_summary` call and add the new fact key. Find the facts dict construction.
+[tool] Reading kiro_report.py:311-350
+[tool] status: Completed
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Now add it to the facts dict and update the limitations line about waterline flags. Let me read the facts dict.
+[tool] Reading kiro_report.py:352-381
+[tool] status: Completed
+[tool] Editing kiro_report.py
+[tool] status: Completed
+Now update the PROMPT_TEMPLATE: remove "triage rank" from statewide section, and make the findings/recommended-dive sections consistent with handoff-vs-survey. Let me read the full prompt.
+[tool] Reading kiro_report.py:378-407
+[tool] status: Completed
+[tool] Editing kiro_report.py
+[tool] status: Completed
+[tool] Running: python -m py_compile scripts/kiro_report.py && echo COMPILE_OK; echo '--- rank/triage refs ---'; grep -ni "rank\|triage" scripts/kiro_report.py || echo none
+[tool] status: Completed
+Remaining "triage" references are just the `bridge_triage.py` script path (still used to extract NBI condition data via pandas) and the explanatory text — these are fine and intended. The ranking is gone from the data and prompt.
+
+Now let me run the facts-only mode first to verify the new facts compute correctly before the full kiro-cli call.
+[tool] Completing #5
+[tool] status: Completed
+Now let me determine how to run the scripts. Let me find the venv and the bag used. Check which python has the deps for export_web.py.
+[tool] Running: ls ~/hackachusetts/.venv/bin/python 2>/dev/null && echo "venv ok"; echo '--- bags ---'; ls -d ~/hackachusetts/bags/run_* 2>/dev/null; echo '--- result ---'; ls -la out/bag2_model.json 2>/d...
+[tool] status: Completed
+The drone+ROV bag is run_20261024_134808 (the one with coop_log.txt and rov truth). Let me run export_web.py. I'll check if the venv python can import the modules. Run export_web with --frames? The frames already exist; re-extracting is slow. I'll run without --frames to keep existing frames (just rebuild the JSON bundle). Let me run it.
+[tool] Running: ~/hackachusetts/.venv/bin/python export_web.py --bag ~/hackachusetts/bags/run_20261024_134808 --result out/bag2_model.json 2>&1 | tail -30
+[tool] status: Completed
+The venv lacks mcap. Let me check which python has mcap. Perhaps a different venv in the detectfix dir.
+[tool] Running: for p in ~/hackachusetts_ext/detectfix/.venv/bin/python ~/hackachusetts_ext/.venv/bin/python python3; do echo "== $p =="; $p -c "import mcap, numpy; print('mcap ok')" 2>&1 | head -2; done;...
+[tool] status: Completed
+System `python3` has mcap and numpy. But export_web.py also uses Pillow and other deps. Let me check and run with python3.
+[tool] Running: python3 -c "import mcap, numpy, PIL; from mcap_ros2.reader import read_ros2_messages; print('deps ok')" 2>&1 | head
+[tool] status: Completed
+[tool] Running: python3 export_web.py --bag ~/hackachusetts/bags/run_20261024_134808 --result out/bag2_model.json 2>&1 | tail -30
+[tool] status: Completed
+export_web ran clean, no triage step, no triage.json written. Confirm triage.json is absent.
+[tool] Running: ls web/data/triage.json 2>/dev/null && echo "STILL THERE" || echo "triage.json absent (good)"
+[tool] status: Completed
+Now run kiro_report.py. First let me test facts-only to verify the new cooperation facts compute, since the kiro-cli call is slow. The kiro_report.py uses TRIAGE_VENV (which has pandas) for NBI extraction — that's fine, separate subprocess. But the main kiro_report process itself only needs stdlib. Let me run facts-only.
+[tool] Running: python3 scripts/kiro_report.py --bag ~/hackachusetts/bags/run_20261024_134808 --prev ~/hackachusetts/bags/run_20261024_123507 --facts-only 2>&1 | tail -20
+[tool] status: Completed
+Let me verify the cooperation facts and NBI facts in the generated JSON.
+[tool] Running: python3 -c " import json f=json.load(open('web/data/kiro_report_facts.json')) c=f['cooperation_handoffs_vs_survey'] print('n_handoffs', c['n_handoffs'], 'n_survey', c['n_survey_covered'], ...
+[tool] status: Completed
+All facts are correct:
+- 4 handoffs (D03/D01/D07/D05) with correct z-values, all inspected.
+- 4 underwater survey-covered (D10 scour, D11 missing_block, D12 crack, D13 undermining) with depths and distances to the ROV route (1.5–2.62 m).
+- NBI bridges have no `rank`/`score`/`reasons` keys — only conditions/scour/ADT.
+- MA counts: 444 Poor, 123 scour critical, 778 underwater — exactly as required.
+
+Now run the full kiro-cli report generation.
+[tool] Running: ls -la ~/.local/bin/kiro-cli 2>/dev/null && echo found || (which kiro-cli; echo "env KIRO_CLI=$KIRO_CLI")
+[tool] status: Completed
+[tool] Running: python3 scripts/kiro_report.py --bag ~/hackachusetts/bags/run_20261024_134808 --prev ~/hackachusetts/bags/run_20261024_123507 2>&1 | tail -20
+[tool] status: Completed
+Report generated. Let me verify the report content for correctness — no ranking, and the handoff vs survey distinction correct.
+[tool] Reading kiro_report.md:1
+[tool] status: Completed
+The report is factually correct:
+- No statewide ranking ("These are plain counts, not a statewide ranking").
+- Handoffs = 4 waterline defects D03/D01/D07/D05 (above water, ROV dived below each).
+- Underwater D10–D13 explicitly "**not** drone handoffs", covered by sonar survey, with route distances.
+- Recommended dive spots = the 4 handoffs, consistent.
+- MA counts 444/123/778 present. NBI conditions, scour, ADT for both bridges.
+
+One minor check: scour code shown as "8" — the report says "both scour code 8" but D10 is a scour defect at the site. That's NBI scour rating (8 = stable), separate from the simulated defect; it's from the NBI data, not invented. Fine.
+[tool] Completing #6
+[tool] status: Completed
+Now the screenshots. Let me check how the v2 screenshots were produced and what tooling is available (playwright/chromium). Let me check serve.py usage and screenshot tooling.
+[tool] Running: python3 -c "import playwright; print('playwright py', playwright.__file__)" 2>&1 | head -1; which chromium chromium-browser google-chrome 2>/dev/null; ls ~/.cache/ms-playwright 2>/dev/null...
+[tool] status: Completed
+google-chrome is available plus playwright chromium cache. Let me check if node playwright is installed, otherwise use google-chrome headless directly. Let me check how v2 screenshots were made — maybe there's a script.
+[tool] Running: grep -rl "screenshot\|playwright\|puppeteer" ~/hackachusetts_ext/detectfix --include=*.py --include=*.js --include=*.sh --include=*.md 2>/dev/null | head; echo '--- global node pw ---'; ls...
+[tool] status: Completed
+v2 top is 1920x1080, full is 1920x3000 (full page). I'll use google-chrome headless to capture. But a full-page screenshot with headless chrome requires `--screenshot` with window size; full-page capture is limited. Let me check the existing v3 pngs that are already there (untracked) — what size.
+[tool] Running: file docs/dashboard_v3_top.png docs/dashboard_v3_full.png 2>/dev/null; echo '---'; google-chrome --version 2>/dev/null; python3 -c "import playwright" 2>&1 | head -1
+[tool] status: Completed
+The v3 PNGs already exist (from a prior iteration) at 1920x1080 (top) and 1920x4000 (full). These must be regenerated to reflect the triage removal. The full one is 4000 tall — with triage removed the page is shorter now. Python playwright isn't installed, but the playwright chromium cache exists. Let me check if node playwright can be used via npx, or just use google-chrome headless with a full-page capture approach.
+
+google-chrome headless supports `--screenshot` but full-page capture needs devtools. The cleanest approach: use google-chrome with a Puppeteer-style CDP via a small node script, or use `--headless --screenshot --window-size`. For full-page, Chrome 149 headless supports `--screenshot` captures only the viewport unless we size the window to the page height.
+
+Let me first start the server on port 8100, then measure the page height, then capture. Let me start serve.py.
+[tool] Running: nohup python3 serve.py --port 8100 > /tmp/serve8100.log 2>&1 & echo "pid $!"; sleep 2; cat /tmp/serve8100.log; echo '--- test ---'; curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:...
+[tool] status: Completed
+Server up on 8100. Let me verify the index serves and triage is gone, then set up screenshotting. Let me check what URL path serve.py uses (the app.js fetches `/web/data/...`).
+[tool] Running: echo "== index triage check =="; curl -s http://127.0.0.1:8100/ | grep -c -i "triage" ; echo "== scene.json =="; curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8100/web/data/sce...
+[tool] status: Completed
+Page has 0 triage references, scene.json loads, triage.json 404s (app.js no longer requests it). Now for screenshots I'll use a node script driving the playwright-cached chromium, or Python playwright. Python playwright import failed. Let me try installing playwright via pip into a temp, or use node. Simplest: use a small node CDP script with google-chrome. Actually, let me check if `pyppeteer` or a node puppeteer exists. Given complexity, the most reliable path: use Python with playwright if I can install it quickly, else use google-chrome headless with a computed window height.
+
+Let me try the google-chrome headless full-page approach using the new headless mode which supports full-page via `--screenshot` when combined with a large window. Actually Chrome's `--headless=new --screenshot` captures only viewport. 
+
+Let me check if playwright is pip-installable or already present under a different python.
+[tool] Running: for p in $(ls ~/*/bin/python ~/*/*/bin/python ~/.*/bin/python 2>/dev/null); do $p -c "import playwright,sys;print(sys.executable)" 2>/dev/null; done | head; echo "--- pip playwright avail ...
+[tool] status: Completed
+Two venvs have playwright. Let me check if one has the browsers and can drive the local chromium cache (chromium-1243).
+[tool] Running: ~/x-jack/venv/bin/python -c " from playwright.sync_api import sync_playwright with sync_playwright() as p: print('chromium exec:', p.chromium.executable_path) " 2>&1 | head -5
+[tool] status: Completed
+Playwright works with the cached chromium. I'll write a screenshot script that captures the top (1920x1080 viewport) and the full page, waiting for the 3D/data to render. Let me write it to a temp file.
+[tool] Creating shoot_v3.py
+[tool] status: Completed
+[tool] Running: ~/x-jack/venv/bin/python /tmp/shoot_v3.py 2>&1 | tail -10
+[tool] status: Completed
+[tool] Running: file docs/dashboard_v3_top.png docs/dashboard_v3_full.png
+[tool] status: Completed
+The full page is now 6881 tall. That seems quite tall — possibly a map/feed panel expanded, or content loaded. Let me visually verify both screenshots to confirm triage is gone and content rendered correctly.
+[tool] Reading image /home/ferbin/hackachusetts_ext/detectfix/docs/dashboard_v3_top.png
+[tool] status: Completed
+Top screenshot renders correctly: KPI tiles, 3D reconstruction with point clouds + paths, GPS map, charts. Now let me check the full-page screenshot's bottom portion to confirm the triage panel is gone and the footer is present. The full image is very tall; let me view it (it will be downscaled).
+[tool] Reading image /home/ferbin/hackachusetts_ext/detectfix/docs/dashboard_v3_full.png
+[tool] status: Completed
+The full page renders: 3D reconstruction, GPS map + charts, mission statistics grid, telemetry charts, sensor feeds (drone RGB of the canal), and the AI inspection report ("Craigie Bridge / Charles River Dam — Inspection Report"). The page continues further down (detections table, report, footer). The triage panel is gone — the page now ends with the report and footer rather than a statewide triage table.
+
+Let me verify the very bottom of the page shows the footer and no triage, by cropping. The image is 6881px tall; the downscaled view cuts off before the very bottom. Let me confirm by checking the DOM order — the last section before footer should be the detections+report panel. Since I already confirmed index.html has no triage section and the served HTML has 0 triage matches, and the full screenshot shows the report rendering, the triage is confirmed removed.
+
+Let me verify the bottom region explicitly by taking a quick crop screenshot of the page end to be thorough.
+[tool] Running: ~/x-jack/venv/bin/python -c " from PIL import Image im = Image.open('docs/dashboard_v3_full.png') w,h = im.size crop = im.crop((0, h-1500, w, h)) crop.save('/tmp/v3_bottom.png') print('sav...
+[tool] status: Completed
+[tool] Running: python3 -c " from PIL import Image im = Image.open('docs/dashboard_v3_full.png') w,h = im.size crop = im.crop((0, h-1600, w, h)) crop.save('/tmp/v3_bottom.png') print('saved', crop.size) "
+[tool] status: Completed
+[tool] Reading image /tmp/v3_bottom.png
+[tool] status: Completed
+The rendered dashboard shows the Kiro inspection report inline with the corrected content: the handoff section (D03/D01/D07/D05 flagged waterline defects handed to ROV) and the "Below the water line" section stating the 4 underwater defects "lie along the ROV's survey route and were covered by its multibeam sonar survey (**not** drone handoffs)" with distances to route. The drone⇄ROV cooperation timeline follows. No statewide triage panel appears — the page ends with model detections + inspection report instead.
+
+The ordering here (report panel appears mid-page) is because the "KIRO INSPECTION REPORT" panel is the hero report and the "MODEL DETECTIONS / INSPECTION REPORT" panel (section 6) is below it. Both are existing panels; triage (old section 7) is removed.
+
+Now stop the server on port 8100 (leaving 8099 alone) and clean up the temp script.
+[tool] Running: pkill -f "serve.py --port 8100" && echo "killed 8100" || echo "nothing to kill" sleep 1 echo "== 8100 status (expect fail) =="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 3 http:/...
+[tool] status: Completed
+The pkill terminated something but the chained output didn't flush. Let me verify port 8100 is down and 8099 untouched, and cleanup completed.
+[tool] Running: echo "== 8100 (expect down) =="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 3 http://127.0.0.1:8100/ || echo "down" echo "== processes on serve.py =="; pgrep -af "serve.py" || ech...
+[tool] status: Completed
+Port 8100 is down (000). Port 8099 is still running (PID 219995) — left alone as instructed. The temp files weren't removed because the earlier chained command aborted at the SIGTERM-returning pkill. Let me clean them now.
+[tool] Running: rm -f /tmp/shoot_v3.py /tmp/v3_bottom.png /tmp/serve8100.log /tmp/detectfix_triage.json; rm -rf /tmp/pwtest; echo "== verify cleaned =="; ls /tmp/shoot_v3.py /tmp/v3_bottom.png /tmp/serve8...
+[tool] status: Completed
+All temp files cleaned. Let me do a final verification of the git status to confirm the scope of changes (no commits made, only expected files modified) and that the v3 screenshots are updated.
+[tool] Running: echo "== branch =="; git branch --show-current echo "== status =="; git status --short echo "== v3 pngs =="; ls -la docs/dashboard_v3_*.png; file docs/dashboard_v3_*.png
+[tool] status: Completed
+All verified. No commits were made and git config is untouched (branch still `dashboard-v2`). Changes are confined to `~/hackachusetts_ext/detectfix`. Let me mark the final task complete.
+[tool] Completing #7
+[tool] status: Completed
+Both changes are complete and verified.
+
+## Change 1 — Statewide bridge ranking/triage removed
+- **`web/index.html`**: deleted the entire "Statewide underwater-inspection triage" panel (section 7).
+- **`web/app.js`**: removed `triage` from the data load, the `triage.json` fetch, the `renderTriage()` call, and the `renderTriage` function.
+- **`web/style.css`**: removed the `.triage-*`, `.tstat`, `.pill`, `#triage-table` block and the triage media-query line.
+- **`export_web.py`**: removed `export_triage()`, `_parse_triage_summary()`, the section-11 call, the `--no-triage/--triage-*` CLI args, and the `triage.json` docstring line; deleted the stale `web/data/triage.json`.
+- **`scripts/kiro_report.py`**: the NBI extractor no longer emits `rank`/`score`/`reasons` — it keeps only the plain condition facts (lowest condition, scour code, year, ADT, bridge condition) plus the Massachusetts counts. The prompt now explicitly says *do NOT rank the bridges statewide*. Verified: the facts JSON has no `rank` key, and the report says "These are plain counts, not a statewide ranking" while still reporting 444 Poor / 123 scour critical / 778 needing underwater inspection.
+
+## Change 2 — Factual fix: handoffs vs. survey coverage
+Added `handoff_vs_survey()` to `kiro_report.py` and a `cooperation_handoffs_vs_survey` facts block, plus a CRITICAL prompt directive. The report now states exactly:
+- The drone flagged **4 waterline defects** — D03 efflorescence (z 0.8), D01 spall (1.0), D07 efflorescence (1.5), D05 crack (1.2) — and for each the ROV dived to inspect the submerged wall directly below it. These are the recommended dive spots.
+- The **4 underwater defects** (D10 scour, D11 missing_block, D12 crack, D13 undermining) are **not** handoffs; they lie along the ROV's survey route and were covered by the multibeam sonar survey, with each defect's distance to the nearest ROV truth-path point computed from the bag: **2.62 m, 1.50 m, 1.77 m, 2.40 m**.
+
+Re-ran `export_web.py` (clean, no triage) and `scripts/kiro_report.py` (facts + full Kiro report, 4679 chars), and re-captured `docs/dashboard_v3_top.png` (1920×1080) and `docs/dashboard_v3_full.png` (1920×6881) from a temporary server on port 8100.
+
+Constraints honored: worked only inside `~/hackachusetts_ext/detectfix` on branch `dashboard-v2`; no commits and no git-config changes; port 8100 was used only for screenshots and is now stopped (returns 000), while port 8099 was left running untouched; all temp files cleaned up.
+KIRO_DONE

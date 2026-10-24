@@ -1,0 +1,16 @@
+Work only inside ~/hackachusetts; edit ONLY sim/ros_pub.py, sim/thermal.py and their tests (tests/test_ros_pub.py,
+tests/test_thermal.py). Do not start/stop/kill any process. These run inside the Isaac Sim render loop (30 fps target),
+so they must be fast. Measured on this machine (~/IsaacLab/env_isaaclab/bin/python, after source /opt/ros/jazzy/setup.bash):
+  RosPub.map(Pw) with Pw = 400,000 random float32 points over a 50 m cube: 1064 ms per publishing call. TARGET <= 30 ms.
+  thermal.synth(labels 540x675 int32, {1:"granite"}, depth 540x675, t): 83 ms per call. TARGET <= 12 ms.
+Ideas (your call): map -> hash voxel keys into one int64 (np.unique on a 1-D int64 array or a sort-based dedupe, not
+np.unique(axis=0)), keep an incremental voxel set between calls so each call only processes new points (the caller passes
+the whole accumulated list each time; you may detect that the first N points are unchanged by length and only process
+Pw[N_prev:]), and cache the packed PointCloud2 bytes. thermal -> resize labels/depth to 640x512 FIRST, cache the per-class
+low-frequency noise fields at output resolution (keyed by class name) instead of regenerating, use a LUT (np.take) for
+class->temperature and a precomputed 256-entry ironbow LUT, cv2.GaussianBlur, float32 throughout.
+Keep the public API and behaviour (outputs, rate limits, QoS) identical. Write a small benchmark script
+scripts/bench_ros.py that prints the per-call times for map (fresh 400k, then +5k incremental) and synth, run it, and
+make sure targets are met. Run the tests with:
+  source /opt/ros/jazzy/setup.bash && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ~/IsaacLab/env_isaaclab/bin/python -m pytest tests/test_ros_pub.py tests/test_thermal.py -q
+Append the benchmark numbers and the test result to ai/kiro_task3_summary.md under a "Perf pass" heading.

@@ -1,0 +1,36 @@
+I'll start by reading FACTS.md to get the facts I need.
+[tool] Reading listing video
+[tool] status: Completed
+[tool] Reading FACTS.md:1
+[tool] status: Completed
+I have all the facts. Now I'll write the script following the exact structure requested.
+[tool] Creating script.json
+[tool] status: Completed
+Now let me validate the JSON and count the words.
+[tool] Running: python3 -c " import json d=json.load(open('script.json')) print('valid JSON:', True) print('lines:', len(d)) words=sum(len(t.split()) for _,t in d) print('word count:', words) for i,t in d...
+[tool] status: Completed
+Valid JSON, 23 lines — but the word count is 364, below the 400-440 target. I need to expand. No per-line range violations. Let me add detail from FACTS to reach the target while keeping each line within 6-22 words.
+[tool] Creating script.json
+[tool] status: Completed
+[tool] Running: python3 -c " import json d=json.load(open('script.json')) print('valid JSON:', True) print('lines:', len(d)) words=sum(len(t.split()) for _,t in d) print('word count:', words) for i,t in d...
+[tool] status: Completed
+Word count is now 416 (in range), but b1 and t4 are 24 words each (over 22). Let me trim those two lines.
+[tool] Editing script.json
+[tool] status: Completed
+[tool] Editing script.json
+[tool] status: Completed
+[tool] Running: python3 -c " import json d=json.load(open('script.json')) print('valid JSON:', True) print('lines:', len(d)) words=sum(len(t.split()) for _,t in d) print('word count:', words) bad=[(i,len(...
+[tool] status: Completed
+Done. `video/script.json` is written and verified.
+
+Verification results:
+- Valid JSON: yes
+- Lines: 23 (within 20-24)
+- Word count: 409 (within 400-440)
+- Every line is 6-22 words: no out-of-range lines
+- IDs follow the requested structure: h1-h2, p1-p3, b1, d1-d4, r1-r4, t1-t4, a1-a2, l1, c1-c2
+
+All numbers and facts come directly from FACTS.md (61,200/day, four out of nine ratings, 5,252 bridges, 444 Poor, 10.1 million crossings, 2,600 over water, 778 diver inspections, 123 scour critical, 38-item mission, 12/7 satellites, 0.4 m over 60 m, 12 m / 130-degree sonar, 4 of 4 flagged, 2.96M + 1.58M points, North Washington Street bridge). Numbers are written as digits, with "four out of nine" spelled per the instruction. Narration is third person ("we built") with no hype words.
+
+Word count: 409.
+KIRO_DONE

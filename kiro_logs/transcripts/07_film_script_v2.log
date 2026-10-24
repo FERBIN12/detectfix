@@ -1,0 +1,21 @@
+I'll start by reading FACTS2.md to understand the available facts and numbers.
+[tool] Finding **/FACTS2.md in video
+[tool] status: Completed
+[tool] Reading FACTS2.md:1
+[tool] status: Completed
+Now I have all the facts. Let me write the narration script following the act structure and id requirements.
+[tool] Creating script2.json
+[tool] status: Completed
+Let me validate the JSON and count the words in the narration text.
+[tool] Running: python3 -c " import json data = json.load(open('script2.json')) words = 0 bad = [] for id_, text in data: n = len(text.split()) words += n if n < 5 or n > 24: bad.append((id_, n...
+[tool] status: Completed
+Done. I wrote `/home/ferbin/hackachusetts/video/script2.json`.
+
+Verified:
+- Valid JSON, 35 lines matching all required ids (o1–o2, p1–p5, i1–i3, s1–s3, d1–d3, r1–r3, t1–t3, k1–k5, m1–m3, w1–w3, c1–c2).
+- Every line is 5–24 words.
+- All facts and numbers come from FACTS2.md, numbers written as digits (and "4 of 9"-style not needed here), with "our estimate" attached to the 20–30% cost figure (the only (est.) number spoken).
+- Calm, first-person-plural documentary tone with transitions between acts.
+
+Word count: 493 words.
+KIRO_DONE

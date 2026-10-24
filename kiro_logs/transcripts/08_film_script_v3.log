@@ -1,0 +1,99 @@
+I'll read the two files first, then write the narration.
+[tool] Reading FACTS2.md:1, SENSORS.md:1
+[tool] status: Completed
+Now I'll write the narration as a cinematic documentary.
+[tool] Creating script3.json
+[tool] status: Completed
+Now validate the JSON and count the words in the narration text.
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) assert all(len(x)==2 for x in d) w=sum(len(t.split()) for _,t in d) print("valid JSON, lines:",len(d)) print("word count:",w) '
+[tool] status: Completed
+473 words — over the 380-420 target. I'll tighten the longer lines without losing facts.
+[tool] Creating script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) assert all(len(x)==2 for x in d) w=sum(len(t.split()) for _,t in d) print("valid JSON, lines:",len(d)) print("word count:",w) '
+[tool] status: Completed
+Still 468. The dense sensor and mission scenes carry most of the length. I'll trim further across the longer lines while preserving every required fact and all 33 ids.
+[tool] Creating script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) ids=[x[0] for x in d] assert all(len(x)==2 for x in d) w=sum(len(t.split()) for _,t in d) print("valid JSON:",True) print("lines:...
+[tool] status: Completed
+Still 452. The content simply runs long at the target word count given 33 scenes. To land inside 380-420 I need to cut roughly 35-70 more words. I'll compress the densest multi-fact lines (b1, n2, n3, x5, v1, v3) which carry the most redundancy, keeping every required fact and number.
+[tool] Creating script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) ids=[x[0] for x in d] w=sum(len(t.split()) for _,t in d) print("valid JSON, lines:",len(d),"| first/last id:",ids[0],ids[-1]) pri...
+[tool] status: Completed
+435 — close, 15 over. A few more cuts on connective tissue will land it in range without touching any fact or number.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) ids=[x[0] for x in d] w=sum(len(t.split()) for _,t in d) print("valid JSON, lines:",len(d),"| first/last id:",ids[0],ids[-1]) pri...
+[tool] status: Completed
+431 — still 11 over. A few final trims on the longest remaining lines.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] status: Failed
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+That accidentally removed a line break. Let me check the file integrity and fix it.
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) w=sum(len(t.split()) for _,t in d) print("valid, lines:",len(d),"words:",w) ' 2>&1 | head
+[tool] status: Completed
+Still valid, 33 lines, 430 words. The merge didn't break JSON (just removed a blank line). Still 10 over. I'll make final cuts to the two longest remaining lines: p2 and p5.
+[tool] Reading script3.json:1
+[tool] status: Completed
+I'll fix the merged line formatting and make two final word trims (b1, v1) to land in range.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+That re-merged lines again. Let me stop fiddling with strReplace and just rewrite the whole file cleanly at ~410 words.
+[tool] Creating script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) ids=[x[0] for x in d] want=["o1","o2","o3","p1","p2","p3","p4","p5","q1","q2","b1","m1","m2","m3","m4","n1","n2","n3","n4","x1","...
+[tool] status: Completed
+429 is still 9 words over the 420 ceiling. I need real cuts, not reshuffling. I'll remove redundant words from the longest lines: p5, b1, x5, v1.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) print("words:",sum(len(t.split()) for _,t in d),"lines:",len(d)) '
+[tool] status: Completed
+426, 6 to go.
+[tool] Editing script3.json
+[tool] status: Completed
+The "60 meters" fact matters for the drift context. Let me revert that one and instead cut filler from other lines.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Editing script3.json
+[tool] status: Completed
+I keep accidentally merging lines with whitespace-only edits. Let me just rewrite the whole file one final time, carefully counted to ~410 words.
+[tool] Creating script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) ids=[x[0] for x in d] want=["o1","o2","o3","p1","p2","p3","p4","p5","q1","q2","b1","m1","m2","m3","m4","n1","n2","n3","n4","x1","...
+[tool] status: Completed
+421 — one word over. One trim does it.
+[tool] Editing script3.json
+[tool] status: Completed
+[tool] Running: python3 -c ' import json d=json.load(open("script3.json")) w=sum(len(t.split()) for _,t in d) print("valid JSON, lines:",len(d),"| WORD COUNT:",w) '
+[tool] status: Completed
+Done. `script3.json` is written at `~/hackachusetts/video/script3.json`.
+
+Word count: 420 (inside the 380-420 target).
+
+Verified:
+- Valid JSON, list of 33 `[id, text]` pairs.
+- IDs match the spec exactly, in order o1→c2.
+- Last line is exactly: "Robot first. Divers only where the map says."
+- Digits used for all numbers; "(est.)" figures flagged on air as "our estimate" (v1).
+- Every fact and number is drawn only from FACTS2.md and SENSORS.md.
+
+Narration structure as requested: cold open hook (o), the problem dramatized (p), the turn (q), build reveal (b), sensor intros (m/n), the mission climax (x), the AI/Kiro brain (k), why it matters (v), and the close (c). Short sentences, concrete images, present tense, first person plural, varied rhythm with several 3-6 word impact lines.
+
+One note: fitting all 33 scenes with their required facts pushed naturally toward ~470 words, so the sensor and mission scenes are deliberately terse to hit the word ceiling. If you'd prefer a looser 400-word feel with a couple of scenes breathing more, I can drop a secondary detail (e.g., the thermal temperature line) to buy room.
+KIRO_DONE

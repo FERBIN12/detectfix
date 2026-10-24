@@ -1,0 +1,69 @@
+I'll start by reading the three protected files to understand the stack, then look at the project structure.
+[tool] Reading bridge_world.py:1, mav_bridge.py:1, route.py:1, listing hackachusetts
+[tool] status: Completed
+I've read all three protected files. Now let me check the sitl launcher and existing scripts/logs directories.
+[tool] Reading launch.sh:1, home.txt:1
+[tool] Finding {scripts,logs}/**
+[tool] status: Completed
+[tool] status: Completed
+No scripts/ or logs/ dir yet. Note `logs_kiro_task2.log` exists at root. Let me check it and verify pytest availability in the venv.
+[tool] Reading logs_kiro_task2.log:1
+[tool] Running: python3 -m pytest --version 2>&1; echo "---ss---"; which ss; echo "---script---"; which script setsid; echo "---venv pytest---"; /home/ferbin/hackachusetts/.venv/bin/python -m pytest --ver...
+[tool] status: Completed
+[tool] status: Completed
+pytest is available (system 7.4.4). Now let me understand the route.py math to write correct tests. Let me create the todo list and write the scripts.
+
+Key facts gathered:
+- SITL launcher: `sitl/launch.sh`, arducopter binary, listens on tcp 5760
+- QGC connects to tcp 5762
+- Isaac binds UDP 127.0.0.1:15000
+- mav_bridge prints "FLYING"
+- route.py: `to_geo`, `ned_to_world`, `flight_plan`, `inspection_route`, constants PIERS, W, DECK_TOP, G_BOT, CAP_TOP, STANDOFF, LAUNCH, LAT0, LON0
+[tool] Creating task list: Write run_live.sh/stop_live.sh launch scripts, tests/test...
+[tool] status: Completed
+Now writing `scripts/run_live.sh`:
+[tool] Creating run_live.sh
+[tool] status: Completed
+A subtlety on the SITL PID: `setsid script ...` creates the `script` process, whose child is the arducopter. Killing the recorded PID (the `script` wrapper) may not reliably kill arducopter. Let me record the arducopter PID specifically for clean shutdown while still never using `pkill -f`. I'll capture it after SITL comes up via `pgrep -x arducopter`.
+[tool] Editing run_live.sh
+[tool] status: Completed
+Now `stop_live.sh` — kills exactly the recorded PIDs, graceful then forceful, never pkill -f.
+[tool] Creating stop_live.sh
+[tool] status: Completed
+[tool] Running: cd /home/ferbin/hackachusetts && bash -n scripts/run_live.sh && echo "run_live.sh OK" && bash -n scripts/stop_live.sh && echo "stop_live.sh OK" && chmod +x scripts/run_live.sh scripts/stop...
+[tool] status: Completed
+Both pass `bash -n`. Task 1 done.
+[tool] Completing #1
+[tool] status: Completed
+Now the tests. Let me carefully analyze the geometry from route.py and bridge_world.py to write correct clearance checks.
+
+Pier footprint (from bridge_world.py):
+- 3 columns per pier at `cy ∈ {-4.6, 0, 4.6}`, radius `0.75`, centered at `px`
+- Cap: box centered `(px, 0, CAP_TOP - CAP_H/2)`, size `(2.2, W-0.6, CAP_H)` → x half-width `1.1`, y half-width `(W-0.6)/2 = 7.2`, spans z from `CAP_TOP-CAP_H` to `CAP_TOP`. CAP_H=1.4, CAP_TOP=8.65.
+
+Pier waypoints (inspection_route): at heights `z ∈ {1.8, 5.0, CAP_TOP-0.8=7.85}`. Lower two (`z < CAP_TOP-1.5=7.15`) orbit columns; the top one orbits at the cap radius. For a waypoint, the relevant element is whichever is nearest.
+
+Span waypoints: alongside at `(x, -W/2-STANDOFF, G_BOT+0.5)` and underneath at `(x, 0, G_BOT-STANDOFF)`. Girder soffit at `G_BOT=8.65`. Deck edge at `y=±W/2`.
+
+Let me write clearance functions in the test.
+[tool] Creating test_route.py
+[tool] status: Completed
+Before running, let me verify my clearance assumptions against the actual pier waypoint geometry. Pier waypoints: `pos = [px + (1.1+STANDOFF)*cos(a), ry*sin(a), z]`. The `1.1` is the cap half-width, not the column radius. So at column heights, the x-offset is `1.1+3.0=4.1` from px, but the column radius is only 0.75. Let me check: at `a=0`, pos is `(px+4.1, 0, z)`, nearest column is at `(px,0)` radius 0.75 → distance `4.1-0.75=3.35` ✓. But at `a=π/2`, pos is `(px, ry, z)` where `ry = 4.6+0.75+3.0 = 8.35` for low z. Nearest column at cy=4.6 → distance `8.35-4.6-0.75... ` = `8.35-4.6=3.75` to center, minus 0.75 = 3.0 ✓.
+
+Let me just run it.
+[tool] Running: cd /home/ferbin/hackachusetts && python3 -m pytest tests/test_route.py -v 2>&1
+[tool] status: Completed
+A pier waypoint reports 2.79 m. I need to determine whether this is a real route bug or a flaw in my test's distance model. Let me analyze the actual geometry.
+
+Waypoint `pier_3` (k=2, px=12.9), pos `[14.3, -7.85, 1.8]`. This is at `a` where `cos(a)=(14.3-12.9)/(1.1+3.0)=1.4/4.1=0.341`, `sin(a)` negative. `ry = 4.6+0.75+3.0 = 8.35`, so `sin(a) = -7.85/8.35 = -0.940`. Check: `0.341²+0.940²=0.116+0.884=1.0` ✓.
+
+My test computed distance to the three columns. Nearest column to `(14.3, -7.85)`: column at `(12.9, -4.6)`: distance `hypot(1.4, -3.25)=hypot(1.4,3.25)=3.538`, minus radius 0.75 = **2.788**. That matches the failure.
+
+So the waypoint is genuinely 2.79 m (center-to-surface) from the column at cy=-4.6. The route is designed for STANDOFF=3.0 around an *elliptical* orbit (x uses semi-axis 4.1, y uses semi-axis 8.35), which does not keep a uniform 3.0 m from circular columns located off the y-axis. The point is only 2.79 m from the column surface — just below the 2.9 m floor.
+
+This is a real geometric property of the route, not a test modeling error. But I must be careful: is my column model correct? Columns are cylinders radius 0.75 at cy ∈ {-4.6, 0, 4.6}. The waypoint at z=1.8 is at column height (columns span from BED+0.5 up to CAP_TOP-CAP_H). So yes, the column exists at z=1.8. The minimum clearance to the column *surface* is 2.79 m.
+
+Let me verify this is the true minimum distance (not just center-based) and check across all pier waypoints how low it goes, to characterize it precisely before deciding.
+[tool] Running: cd /home/ferbin/hackachusetts && python3 - <<'PY' import importlib.util, math, os import numpy as np spec=importlib.util.spec_from_file_location("r","sim/route.py"); r=importlib.util.modul...
+[tool] status: Completed
+This is much more significant than the single 2.79 m point. The worst case is **1.65 m**, and 72 of 108 pier waypoints are below 2.9 m. Let me examine the 1.65 m worst case: pos `(15.535, 7.814, 7.85)` — z=7.85 is `CAP_TOP-0.8`, the top ring, which orbits at the cap radius. At z=7.85, `CAP_BOT=7.25 ≤ 7.85 ≤ C

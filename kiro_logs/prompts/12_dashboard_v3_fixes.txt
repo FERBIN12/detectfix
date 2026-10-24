@@ -1,0 +1,13 @@
+Work only inside ~/hackachusetts_ext/detectfix (branch dashboard-v2). Do NOT git commit or change git config. Port 8100 for
+testing only, stop it afterwards; leave 8099 alone. Two small changes, then re-run scripts/kiro_report.py and re-screenshot
+docs/dashboard_v3_top.png and docs/dashboard_v3_full.png:
+1. Remove the statewide bridge ranking/triage from the dashboard entirely (the triage panel and table, any "rank N of 5252"
+   text) and from the report facts and report. Keep the plain NBI condition facts for the two dam-crossing bridges
+   (condition, worst rating, scour code, ADT) and the Massachusetts counts (444 Poor, 123 scour critical, 778 need
+   underwater inspection) but no ranking.
+2. Fix a factual error in the report facts/prompt: the drone flagged 4 WATERLINE defects (D03 efflorescence, D01 spall,
+   D07 efflorescence, D05 crack; all above the water line near z=0.8-1.5 m) and for each one the ROV was tasked to dive and
+   inspect the submerged wall directly below it (coop_log.txt). The 4 UNDERWATER ground-truth defects (D10 scour,
+   D11 missing_block, D12 crack, D13 undermining) were NOT handoffs: they lie along the ROV's survey route and were covered
+   by its multibeam sonar survey (state their distance to the nearest ROV truth-path point from the bag). Make the report
+   say exactly that, and make the recommended dive spots consistent with it. Keep everything else.

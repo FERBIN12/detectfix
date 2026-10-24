@@ -1,0 +1,27 @@
+Work only inside ~/hackachusetts/video. Read FACTS2.md and SENSORS.md. Write script3.json: narration for a 2:45-3:00
+cinematic film (about 380-420 words), JSON list of [id, text]. Use ONLY facts/numbers from those two files; say "our
+estimate" for (est.) numbers. The previous version was a boring list of statistics. This one must be STORYTELLING:
+a documentary with a hook, tension, a turn, a climax and a payoff. Short sentences. Concrete images. Present tense where
+it helps. Vary rhythm: some lines just 3-6 words for impact. No hype words, no rhetorical "imagine". First person plural.
+Scenes and ids (keep the ids):
+ o1-o3   COLD OPEN over a drone shot of the canal: 61,200 cars a day cross here; everyone sees the bridge; nobody sees what
+         holds it up, under the water.
+ p1-p5   THE PROBLEM AS A SCENE (murky underwater footage): someone has to go down and look, by hand, in water you can't
+         see through; 778 bridges in Massachusetts need it; MassDOT has 7 divers; and when a flood scours the riverbed,
+         exactly when it matters, nobody can dive (above ~3 ft/s of current divers lose mobility).
+ q1-q2   THE TURN: the rule says divers stay (FHWA: sonar only supplements); so we asked a different question: what if a
+         robot went first, and divers only went where the map says?
+ b1      We built it in one day, from scratch, in NVIDIA Isaac Sim (a robotics simulator with real-time ray tracing and
+         physics), a digital twin of this exact crossing, with real ArduPilot autopilots flying both robots.
+ m1-m4   MEET THE DRONE (hero shot with callouts): name each sensor and what it does in plain words (from SENSORS.md).
+ n1-n4   MEET THE ROV (hero shot with callouts): DVL, sonar, camera and lights, thrusters, in plain words.
+ x1-x6   THE MISSION, the climax: the drone flies the wall; under the deck its GPS fades (12 to 7); it spots damage at the
+         water line and hands off; the ROV dives to the exact spot; its sonar finds what no one could see (a missing
+         block, a scour pit with exposed piles); 4 flagged, 4 inspected; the reveal: one 3D model, above and below.
+ k1-k3   THE BRAIN, built with Kiro (AWS's agentic coding IDE): Megha's detection pipeline and dashboard (YOLOv8 finds
+         defects, every report claim cites a detection, an engineer signs off); the triage of 5,252 bridges.
+ v1-v3   WHY IT MATTERS, fast: robot first is about 20-30% cheaper per bridge (our estimate); a 16,448 dollar kit;
+         by 15 March 2028 every state must re-code scour in SNBI, and pilot money already exists.
+ c1-c2   CLOSE: the next step is a 10-bridge pilot checked against divers. Last line exactly: "Robot first. Divers only
+         where the map says."
+Write digits for numbers. Valid JSON. Print the word count.

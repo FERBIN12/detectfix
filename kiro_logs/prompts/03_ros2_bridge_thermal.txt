@@ -1,0 +1,66 @@
+Work only inside ~/hackachusetts. Do NOT modify any existing file under sim/ (charles_dam_world.py, x500.py, route_dam.py,
+mav_bridge.py, bridge_world.py, route.py) and do NOT start, stop or kill any process (an Isaac render may be running).
+ROS 2 Jazzy is at /opt/ros/jazzy. Code must run in ~/IsaacLab/env_isaaclab/bin/python (Python 3.12, numpy 2.x) after
+`source /opt/ros/jazzy/setup.bash`; only use numpy, cv2 (opencv), rclpy and standard ROS message packages.
+
+Context: sim/charles_dam_world.py is an Isaac Sim scene in which a drone (pose from ArduCopter SITL) inspects the Craigie
+drawbridge in Boston. World frame: metres, Z up. It will call into the modules below from inside its main loop, so every
+call must be NON-BLOCKING and cheap (no spinning threads that hold the GIL for long; use rclpy.spin_once(node, timeout_sec=0)).
+
+Write these files:
+
+1. sim/ros_pub.py: class RosPub(node_name="inspection_drone"). rclpy.init() if not already initialised. Methods:
+   - pose(pos, quat_xyzw, vel=None): pos/vel are length-3 world-frame numpy arrays. Publishes TF odom->base_link,
+     nav_msgs/Odometry on /odom (frame odom, child base_link), and appends to nav_msgs/Path /path (frame map) whenever
+     the drone moved >= 0.15 m since the last appended pose (publish /path at most 5 Hz). A static TF map->odom
+     (identity) is published once at construction via tf2_ros.StaticTransformBroadcaster-equivalent (/tf_static,
+     TRANSIENT_LOCAL QoS). Use tf2_msgs/TFMessage publishers directly (no tf2_ros dependency needed if simpler).
+   - sensor_tf(child, pos, quat_xyzw, parent="base_link"): dynamic TF for a sensor relative to base_link (the gimbal moves).
+   - cloud(P, frame="os0_lidar", topic="/lidar/points"): P is an (N,3) float32 array in the sensor frame. PointCloud2
+     with x,y,z float32 fields, built from the numpy buffer directly (fast, no per-point Python loops).
+   - map(Pw): (N,3) world-frame points, accumulated by the caller. Voxel-downsample to 0.10 m (numpy unique on integer
+     voxel keys), keep at most 400k points, publish PointCloud2 on /map in frame map with fields x,y,z,intensity where
+     intensity = z (so RViz can colour by height). Rate-limit internally to 1 Hz.
+   - image(topic, img, frame, encoding="rgb8"): sensor_msgs/Image from an HxWx3 uint8 array; also accept HxW float32
+     with encoding "32FC1". Rate-limit per topic to 10 Hz.
+   - mission(waypoints): list of (pos(3), target(3), element_name_str). Publishes /mission (nav_msgs/Path, frame map) and
+     /mission/markers (MarkerArray: small spheres at each waypoint, a LINE_STRIP through them, TEXT labels at the
+     first waypoint of each new element name). TRANSIENT_LOCAL QoS so RViz started later still gets them.
+   - defects(list_of_dicts): each dict has at least "kind", "position" (xyz list) and "severity" (any of int/str); look at
+     data/defects_gt.json for the real format and adapt. Publishes /defects (MarkerArray, frame map, TRANSIENT_LOCAL):
+     a red/orange/yellow cube by severity plus a TEXT label "kind (severity)".
+   - status(text): std_msgs/String on /drone/status (GNSS sats, fix, ArduCopter mode).
+   - spin(): rclpy.spin_once(self.node, timeout_sec=0.0).
+   - close().
+   All stamps use the node clock. Frame names: map, odom, base_link, os0_lidar, gimbal_cam, thermal_cam.
+
+2. sim/thermal.py: simulated LWIR camera (FLIR Boson 640 class, 640x512). Isaac has no physics thermal sensor, so this
+   is an honest approximation and must say so in its docstring. Function
+   synth(labels, id2class, depth, t, ambient_c=12.0, rng=None) -> (temp_c float32 HxW, ironbow uint8 HxWx3 RGB)
+   - labels: HxW integer semantic id image; id2class: dict id->class name string. Unknown/unlabelled ids = "sky".
+   - Per-class base temperatures relative to ambient, e.g. sky -25, water -3, granite 0, granite_wet -2.5,
+     concrete +1, asphalt +6, steel +2, steel_rust +2.5, brick +1.5, vegetation -1, vehicle +15, boat +3,
+     drone +8, defect_moisture -4, defect_delamination +3.5, defect_crack -1.5, default 0.
+   - Add a smooth low-frequency spatial variation (+-0.6 C, e.g. upsampled random noise seeded per class so it is
+     stable over time), atmospheric attenuation toward ambient with depth (tau ~ exp(-depth/400)), a Gaussian optical
+     blur (sigma ~1 px), and temporal NETD noise (~0.05 C, from rng).
+   - Ironbow colour map (black-blue-purple-red-orange-yellow-white), auto-ranged per frame with 2nd/98th percentile and
+     a minimum span of 6 C. Also write a function ironbow(temp_c, lo, hi).
+   - Output resized to 640x512 with INTER_NEAREST for labels (do the resize before colouring).
+
+3. rviz/inspection.rviz: RViz2 config, fixed frame map. Displays: Grid, TF (base_link/sensor frames, small markers),
+   Odometry /odom (arrow, keep 1), Path /path (green), Path /mission (white, dashed look is fine), MarkerArray
+   /mission/markers and /defects, PointCloud2 /lidar/points (colour by intensity or z, size 0.03 points),
+   PointCloud2 /map (AxisColor Z, points 0.05, decay 0), Image /camera/rgb, Image /camera/thermal,
+   Image /camera/depth is NOT needed. Use an Orbit view centred near the origin about 60 m away, pitch ~0.5.
+   Make sure the file loads: validate it is well-formed YAML.
+
+4. scripts/rviz.sh: sources /opt/ros/jazzy/setup.bash and runs `rviz2 -d <repo>/rviz/inspection.rviz`.
+
+5. tests/test_ros_pub.py and tests/test_thermal.py (pytest): voxel downsample correctness, PointCloud2 byte layout
+   round-trip via sensor_msgs_py.point_cloud2.read_points_numpy, /path decimation logic, thermal output shapes/dtypes,
+   defects colder than granite in temp_c, ironbow monotone brightness. Tests that need rclpy must run without any
+   other ROS node present. Run them with: source /opt/ros/jazzy/setup.bash && ~/IsaacLab/env_isaaclab/bin/python -m pytest tests -q
+   and fix until they pass.
+
+Finally, write a short summary of what you built and the exact test result to ai/kiro_task3_summary.md.

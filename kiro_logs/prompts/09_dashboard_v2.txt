@@ -1,0 +1,57 @@
+Work only inside ~/hackachusetts_ext/detectfix (git branch dashboard-v2, already checked out). Do NOT touch anything else on
+disk except reading the inputs listed below. Use the Python venv ~/hackachusetts_ext/venv (python, numpy, mcap,
+mcap-ros2-support, ultralytics, imageio are installed). Do not start/stop processes other than your own short-lived ones;
+a server may already listen on port 8099: use port 8100 for your own testing and stop it when done.
+
+GOAL: redo the web dashboard (web/index.html, web/app.js, web/style.css, export_web.py, serve.py) so it shows the WHOLE
+two-robot inspection properly, for hackathon judges. It must look polished and professional (dark theme like now, clean
+typography, no clutter), and every number must come from the data.
+
+INPUT (new mission, drone + ROV together): BAG=~/hackachusetts/bags/run_20261024_134808
+  - run_20261024_134808_0.mcap: ROS 2 bag. Topics: /camera/rgb, /camera/thermal (Image rgb8), /lidar/points, /odom,
+    /path (drone flown path), /mission, /defects (MarkerArray), /drone/status (String),
+    /rov/camera, /rov/sonar/image (Image rgb8), /rov/sonar/points (PointCloud2, map frame), /rov/odom + /rov/path
+    (ROV's own estimate, navigating on a DVL with no GPS), /rov/truth/odom + /rov/truth/path (ground truth),
+    /rov/dvl/beams, /rov/status (String with DVL altitude, nav error), /coop/tasks (MarkerArray: drone-flagged defect ->
+    ROV dive point), /tf.
+  - map/drone_lidar_world.npy (above water, 2.96M pts), map/rov_sonar_world.npy (below water, 1.58M pts) world frame,
+    metres, Z up, water line z=0.
+  - defects_gt.json: 13 ground-truth defects (9 above water, 4 underwater: scour, missing_block, crack, undermining).
+  - coop_log.txt: drone flagged D03, D01, D07, D05 at the water line; ROV inspected each ("TASK DONE").
+  - inspection_frames/: drone stills per waypoint (+ JSON).
+  - Bridge triage: run  ~/hackachusetts/.venv/bin/python ~/hackachusetts/ai/bridge_triage.py --json <out> --summary  to get
+    the statewide ranking of 5,252 Massachusetts bridges (NBI 2022). Use the top 10 and the summary counts.
+First run the existing pipeline on it:  ../venv/bin/python run_bag.py --bag $BAG --detector model --out out/bag2_model.json
+(already done once; out/bag2_model.json exists) and annotate_frames.py for the annotated stills/video.
+
+DASHBOARD CONTENT (single page, 1920x1080 first screen must look great; more below the fold is fine):
+ 1. Header: "Craigie Bridge Inspector · Charles River Dam, Boston" + mission id + "Drone (ArduCopter) + BlueROV2 (ArduSub)".
+ 2. KPI tiles: defects detected by the model (from bag2_model.json), ground-truth defects 13 (9 above / 4 below),
+    drone-flagged waterline defects 4 / ROV inspected 4, ROV nav error vs truth at the end (from /rov/odom vs
+    /rov/truth/odom), distance the ROV travelled, lidar points above / sonar points below, mission duration.
+ 3. The HERO: a Three.js 3D view (use a pinned CDN version, e.g. three@0.160.0 via unpkg or jsdelivr, with OrbitControls)
+    of the combined model: drone lidar above the water (colour by height), ROV sonar below the water (amber/orange), a
+    translucent water plane at z=0, the drone path (cyan) and ROV path (orange, solid = DVL estimate, thin white = truth),
+    ground-truth defect markers (red spheres above water, magenta below) with labels on hover, and lines from each
+    drone-flagged defect down to the ROV's dive point. Downsample each cloud to <= 250k points (voxel) into compact
+    binary Float32 files. The camera MUST auto-frame the canal on load (compute the bounding box; the current view is a
+    tiny blob in the middle - fix that). Smooth slow auto-orbit until the user interacts.
+ 4. Sensor feeds panel with tabs: Drone RGB (annotated model detections), Thermal (simulated), ROV camera, ROV sonar.
+    Extract ~60 evenly spaced frames per stream from the bag into web/data/<stream>/NNNN.jpg plus a manifest, with a
+    play/scrub control.
+ 5. Cooperation timeline: horizontal time axis of the mission with drone events (flags) and ROV events (dive to task,
+    task done), from coop_log.txt / bag timestamps (use /coop/tasks marker text changes and /rov/status if needed).
+ 6. Detections table (model) with class, confidence, severity, element, evidence frame thumbnail; and the AI report with
+    detection-id citations (deterministic fallback text is fine; label it honestly as in the current UI), plus a
+    "Draft / Under review / Approved (PE sign-off)" status control that is clickable (local state only).
+ 7. Statewide triage panel: top 10 Massachusetts bridges by underwater-inspection risk with reasons, and the summary
+    (5,252 bridges, 444 Poor, 778 need underwater inspection, 123 scour critical).
+ 8. Footer: data sources (FHWA NBI 2022, simulation in Isaac Sim + ArduPilot SITL) and an honest-limits line
+    (simulation; thermal simulated; waterline flags from ground truth in this demo).
+
+Keep export_web.py the one command that builds web/data/ from the bag (add a --bag2 or reuse --bag), and serve.py the one
+command that serves it. Update README.md (dashboard section). Verify by serving on port 8100 and taking headless Chrome
+screenshots (google-chrome --headless=new --no-sandbox --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader
+--window-size=1920,1080 --virtual-time-budget=20000 --screenshot=...) of the first screen and of a 1920x3000 full page;
+look at them and fix anything broken or ugly (empty panels, unframed 3D view, overlapping text). Save the final screenshots
+as docs/dashboard_v2_top.png and docs/dashboard_v2_full.png. Commit on branch dashboard-v2 (do not push).

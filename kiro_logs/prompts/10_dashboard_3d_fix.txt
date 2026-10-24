@@ -1,0 +1,18 @@
+Work only inside ~/hackachusetts_ext/detectfix (branch dashboard-v2). Do NOT run git commit or change git config; leave
+changes uncommitted. Use ~/hackachusetts_ext/venv. Test on port 8100 only and stop your server when done.
+Fix the 3D view of the dashboard you just built (export_web.py + web/app.js), looking at docs/dashboard_v2_top.png:
+ 1. Crop both clouds to the canal and bridge area before downsampling: canal frame from
+    ~/hackachusetts/sim/route_dam.py (import it: C, R unit vectors; c = p.C, r = p.R): keep -75 < c < 40 and |r| < 22,
+    z between -7 and 14. The far city points currently swamp the view.
+ 2. Colour the lidar by height with a vivid ramp (e.g. turbo or viridis: blue at z=0 to yellow/red at z=10), point size
+    a bit larger; sonar (below water) bright amber-to-red by depth, larger points so the underwater walls, bed and the
+    scour pit read clearly. Keep the water plane but make it subtler (opacity ~0.12) so the sonar shows through.
+ 3. Draw the drone path, ROV DVL path and ROV truth path as thick visible lines (use Line2/LineMaterial from
+    three/examples/jsm/lines or tube geometry), rendered on top (depthTest off) in the legend colours.
+ 4. Initial camera: oblique view from downstream-above looking up the canal (like a drone shot), framing the cropped
+    bounding box tightly; keep the slow auto-orbit until interaction. Defect markers a bit larger with a glow, labels
+    on hover as before.
+ 5. In the cooperation timeline the first labels overlap: stagger labels on two rows when events are within 15 s.
+Re-export (export_web.py) and re-screenshot to docs/dashboard_v2_top.png and docs/dashboard_v2_full.png with headless
+Chrome as before; look at the screenshots and iterate until the 3D view clearly shows the walls above water, the
+sonar map below, the paths and the defects. Leave everything uncommitted.

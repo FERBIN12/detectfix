@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Craigie Bridge Inspector — Drone + BlueROV2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<!-- Leaflet 1.9.4 (GPS map, OpenStreetMap tiles) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Chart.js 4.4.1 (time-series) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/web/style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<!-- 1. HEADER -->
+<header>
+  <div class="brand">
+    <div class="logo">◈</div>
+    <div class="brand-text">
+      <h1>Craigie Bridge Inspector</h1>
+      <div class="sub">Charles River Dam, Boston · <span class="platforms">Drone (ArduCopter) + BlueROV2 (ArduSub)</span></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="mission-id" class="mission-id">loading…</div>
+    <div id="headline" class="headline">—</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- 2. KPI TILES -->
+  <section class="kpi-row" id="kpis"></section>
+
+  <!-- 3. FIRST SCREEN: 3D reconstruction (hero) + GPS map -->
+  <section class="hero-grid">
+    <div class="panel hero">
+      <div class="panel-head">
+        <h2>Combined 3D reconstruction</h2>
+        <div class="legend" id="hero-legend">
+          <span><i class="sw lidar"></i>LiDAR (above water)</span>
+          <span><i class="sw sonar"></i>Sonar (below water)</span>
+          <span><i class="sw dpath"></i>Drone path</span>
+          <span><i class="sw rpath"></i>ROV path (DVL)</span>
+          <span><i class="sw tpath"></i>ROV truth</span>
+          <span><i class="sw dabove"></i>defect</span>
+          <span><i class="sw dbelow"></i>underwater defect</span>
+        </div>
+      </div>
+      <div id="viewer" class="viewer"><div class="hint">framing the canal…</div></div>
+      <div id="hover-label" class="hover-label"></div>
+    </div>
+
+    <div class="panel gps-panel">
+      <div class="panel-head">
+        <h2>GPS tracks · Charles River Dam</h2>
+        <div class="legend">
+          <span><i class="sw dpath"></i>drone (GNSS)</span>
+          <span><i class="sw rpath"></i>ROV (DVL)</span>
+          <span><i class="sw tpath"></i>ROV truth</span>
+        </div>
+      </div>
+      <div id="gps-map" class="gps-map"></div>
+      <div class="gps-chart-wrap">
+        <div class="mini-head">Drone GNSS satellites over time <small>(under-deck interval shaded)</small></div>
+        <canvas id="chart-sats" height="92"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. BIG STATS GRID -->
+  <section class="panel stats-panel">
+    <div class="panel-head">
+      <h2>Mission statistics</h2>
+      <small>every value measured from the recorded bag, maps and result — nothing hard-coded</small>
+    </div>
+    <div id="stats-grid" class="stats-grid"></div>
+  </section>
+
+  <!-- 5. TIME-SERIES CHARTS -->
+  <section class="panel charts-panel">
+    <div class="panel-head">
+      <h2>Flight &amp; dive telemetry</h2>
+      <small>drone above the water line · BlueROV2 below it</small>
+    </div>
+    <div class="charts-grid">
+      <div class="chartbox"><div class="mini-head">Drone altitude <small>m</small></div><canvas id="chart-alt" height="150"></canvas></div>
+      <div class="chartbox"><div class="mini-head">Drone speed <small>m/s</small></div><canvas id="chart-speed" height="150"></canvas></div>
+      <div class="chartbox"><div class="mini-head">ROV depth <small>m below water</small></div><canvas id="chart-depth" height="150"></canvas></div>
+      <div class="chartbox"><div class="mini-head">ROV DVL altitude above bed <small>m</small></div><canvas id="chart-dvl" height="150"></canvas></div>
+      <div class="chartbox"><div class="mini-head">ROV nav error <small>|DVL − truth|, m</small></div><canvas id="chart-naverr" height="150"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 6. SENSOR FEEDS -->
+  <section class="panel feeds">
+    <div class="panel-head"><h2>Sensor feeds</h2><small id="feed-count"></small></div>
+    <div class="tabs" id="feed-tabs"></div>
+    <div class="feedwrap">
+      <img id="feed-img" alt="sensor frame" />
+    </div>
+    <div class="feed-controls">
+      <button id="f-prev" title="previous">‹</button>
+      <button id="f-play">▶</button>
+      <button id="f-next" title="next">›</button>
+      <input type="range" id="f-scrub" min="0" max="0" value="0" />
+      <span id="f-label" class="mono"></span>
+    </div>
+  </section>
+
+  <!-- 7. KIRO-GENERATED INSPECTION REPORT -->
+  <section class="panel kiro-panel">
+    <div class="panel-head">
+      <h2>Kiro inspection report</h2>
+      <span id="kiro-tag" class="kiro-tag">⬦ generated by Kiro</span>
+    </div>
+    <div id="kiro-report" class="kiro-report">Kiro report not generated yet — run <code>python scripts/kiro_report.py</code>.</div>
+    <div id="kiro-meta" class="kiro-meta"></div>
+  </section>
+
+  <!-- 5. COOPERATION TIMELINE -->
+  <section class="panel timeline-panel">
+    <div class="panel-head">
+      <h2>Drone ⇄ ROV cooperation</h2>
+      <small id="coop-summary"></small>
+    </div>
+    <div id="timeline" class="timeline"></div>
+    <div class="timeline-legend">
+      <span><i class="sw drone-ev"></i>drone flags defect at water line</span>
+      <span><i class="sw dive-ev"></i>ROV diving</span>
+      <span><i class="sw done-ev"></i>ROV inspection done</span>
+    </div>
+  </section>
+
+  <!-- 6. DETECTIONS + REPORT -->
+  <section class="two-col">
+    <div class="panel">
+      <div class="panel-head"><h2>Model detections</h2><small id="det-count"></small></div>
+      <table id="det-table">
+        <thead><tr>
+          <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th><th>Evidence</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel report-panel">
+      <div class="panel-head">
+        <h2>Inspection report</h2>
+        <span id="report-badge" class="badge"></span>
+      </div>
+      <div id="report" class="report">—</div>
+      <div class="signoff">
+        <span class="signoff-label">Status</span>
+        <div class="status-ctl" id="status-ctl">
+          <button data-s="draft" class="on">Draft</button>
+          <button data-s="review">Under review</button>
+          <button data-s="approved">Approved (PE sign-off)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 8. FOOTER -->
+<footer>
+  <div class="foot-col">
+    <strong>Data sources</strong>
+    <span>FHWA National Bridge Inventory 2022 · mission recorded in Isaac Sim + ArduPilot SITL (ArduCopter + ArduSub)</span>
+  </div>
+  <div class="foot-col limits">
+    <strong>Honest limits</strong>
+    <span>Simulation, not a live bridge. Thermal feed is simulated LWIR. Waterline defect flags use ground truth in this demo. Report text is deterministic (no LLM key present).</span>
+  </div>
+</footer>
+
+<script type="module" src="/web/app.js"></script>
+</body>
+</html>
