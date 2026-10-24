@@ -154,6 +154,21 @@ esac
 # -----------------------------------------------------------------------------
 # (d) QGroundControl
 # -----------------------------------------------------------------------------
+# QGC: make sure it auto-connects to the BlueROV2 too (ArduSub sysid 2 on tcp 5772). QGC rewrites its ini on exit,
+# so this runs before it starts.
+python3 - <<'PYEOF'
+import os, re
+p = os.path.expanduser("~/.config/QGroundControl/QGroundControl.ini")
+if os.path.exists(p):
+    s = open(p).read()
+    if "port=5772" not in s and "[LinkConfigurations]" in s:
+        n = int(re.search(r"\[LinkConfigurations\][^\[]*?count=(\d+)", s, re.S).group(1))
+        add = (f"Link{n}\\auto=true\nLink{n}\\high_latency=false\nLink{n}\\host=127.0.0.1\n"
+               f"Link{n}\\name=BlueROV2 ArduSub SITL\nLink{n}\\port=5772\nLink{n}\\type=2\n")
+        s = re.sub(r"(\[LinkConfigurations\][^\[]*?)count=\d+", lambda m_: m_.group(1) + add + f"count={n + 1}", s, count=1, flags=re.S)
+        open(p + ".bak-rov", "w").write(open(p).read()); open(p, "w").write(s)
+        print("[run_live] QGC: added the BlueROV2 link (tcp 5772)")
+PYEOF
 if [[ -x "$QGC" ]]; then
     log "launching QGroundControl (auto-connects to tcp 5762) ..."
     setsid "$QGC" >"$LOGS/qgc.log" 2>&1 &

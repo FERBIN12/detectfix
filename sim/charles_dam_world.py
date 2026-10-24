@@ -152,10 +152,11 @@ def set_water_normal(f):
 set_water_normal(0)
 box("/World/Bed", (0, 0, -7.0), (1000, 1000, 0.2), M["soil"])
 # canal bed under the bridge: silt heightfield with the scour pit at the east abutment toe (RT.bed_z)
+M["silt"] = scan("concrete_pavement", 2.0, (0.30, 0.31, 0.25), bump=0.6)          # river silt, not beach sand
 _bc = np.arange(RT.CANAL_C0, RT.CANAL_C1 + 0.01, 0.5); _br = np.arange(-RT.CANAL_W / 2 - 0.8, RT.CANAL_W / 2 + 0.81, 0.25)
 _BP = np.array([[*cw(c_, r_)[:2], 0.0] for c_ in _bc for r_ in _br]); _BP[:, 2] = [RT.bed_z(x_, y_) for x_, y_, _ in _BP]
 _nr = len(_br)
-_bed = mesh("/World/CanalBed", _BP, [[i * _nr + j, i * _nr + j + 1, (i + 1) * _nr + j + 1, (i + 1) * _nr + j] for i in range(len(_bc) - 1) for j in range(_nr - 1)], M["soil"])
+_bed = mesh("/World/CanalBed", _BP, [[i * _nr + j, i * _nr + j + 1, (i + 1) * _nr + j + 1, (i + 1) * _nr + j] for i in range(len(_bc) - 1) for j in range(_nr - 1)], M["silt"])
 _bed.CreateDoubleSidedAttr(True)
 
 # ---------------------------------------------------------------- canal walls: individual granite blocks (ashlar), coping, wet band
@@ -623,7 +624,7 @@ def rov_step():
         if polar is not None:
             ROV_IMG[1] = SON.fan(polar); SONAR_N[0] += len(pts)
             if ROS:
-                if len(pts): RP_R.map_extend(pts[::3])
+                if len(pts): RP_R.map_extend(pts[::3]); RP_R.cloud(pts, frame="map", topic="/rov/sonar/points")
                 RP_R.image("/rov/sonar/image", ROV_IMG[1], "rov/sonar")
     if frame % 3 == 0:                                                              # low-light camera through turbid water
         rgb, dd = np.asarray(a_rrgb.get_data()), np.asarray(a_rdep.get_data(), np.float32)
@@ -734,6 +735,37 @@ MSTATE, last_wp = {}, -1
 PROF, PROF_T = os.environ.get("PROF") == "1", []
 seg, s_in, rec_i, t, frame = 0, 0.0, 0, 0.0, 0
 dt = 1 / 30
+
+
+def underwater_fog(on, density=None, falloff=None, color=None):
+    """RTX height fog below the water line: murky Charles River underwater, clear air above (z-up, starts at z=0)."""
+    cs = carb.settings.get_settings()
+    vals = {"/rtx/fog/enabled": bool(on), "/rtx/fog/fogZup/enabled": True, "/rtx/fog/fogStartHeight": 0.0,
+            "/rtx/fog/fogHeightDensity": float(density if density is not None else FOG_D), "/rtx/fog/fogHeightFalloff": float(falloff if falloff is not None else FOG_F),
+            "/rtx/fog/fogDistanceDensity": 0.0, "/rtx/fog/fogStartDist": 0.0, "/rtx/fog/fogEndDist": 60.0,
+            "/rtx/fog/fogColor": list(color or (0.06, 0.12, 0.09)), "/rtx/fog/fogColorIntensity": 1.0}
+    for k_, v_ in vals.items():
+        try: cs.set(k_, v_)
+        except Exception as e_: print("fog setting", k_, e_, flush=True)
+
+
+FOG_D, FOG_F = float(os.environ.get("FOG_D", "0.35")), float(os.environ.get("FOG_F", "3.0"))
+underwater_fog(os.environ.get("FOG", "0") == "1")                                  # RTX height fog barely shows: off by default
+if os.environ.get("UWTEST") == "1":                                                # look test: ROV chase underwater + drone chase above
+    rp_t = rep.create.render_product("/World/ROVChase", (960, 540)); a_t = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_t.attach([rp_t])
+    rp_t2 = rep.create.render_product("/World/Chase", (960, 540)); a_t2 = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_t2.attach([rp_t2])
+    p_ = cw(-30.0, RT.CANAL_W / 2 - 1.8, -2.4); ry = (0.0, 0.0, math.radians(90.0 - RT.face_yaw(1)))
+    ROV_OP.Set(rov_matrix(p_, ry)); yw_ = math.pi / 2 - ry[2]; fw_ = np.array([math.cos(yw_), math.sin(yw_), 0.0]); lf_ = np.array([-fw_[1], fw_[0], 0.0])
+    look(rc_op, p_ - 2.2 * fw_ + 1.1 * lf_ + np.array([0, 0, 0.7]), p_ + 0.6 * fw_)
+    dpos_ = cw(-30.0, RT.CANAL_W / 2 - 2.5, 1.4); d_op.Set(Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), RT.face_yaw(1))) * Gf.Matrix4d().SetTranslate(Gf.Vec3d(*dpos_)))
+    look(c_op, dpos_ + cw(-6.0, -2.0, 1.8), dpos_)
+    for i_, (dd, ff) in enumerate([(0.0, 1.0)] + [tuple(map(float, x.split(":"))) for x in os.environ.get("FOGSET", "0.3:2,0.6:2,0.3:6,1.0:4").split(",")]):
+        underwater_fog(dd > 0, dd, ff)
+        for _ in range(25): rep.orchestrator.step(rt_subframes=2)
+        im1 = np.ascontiguousarray(np.asarray(a_t.get_data())[:, :, 2::-1]); im2 = np.ascontiguousarray(np.asarray(a_t2.get_data())[:, :, 2::-1])
+        cv2.putText(im1, f"density {dd} falloff {ff}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        cv2.imwrite(os.path.join(DATA, "stills", f"uw_{i_}.png"), np.hstack([im1, im2])); print("UW", i_, dd, ff, flush=True)
+    app.close(); sys.exit(0)
 for _ in range(30): app.update()
 while app.is_running():
     if MAV:                                                                     # pose from the real autopilot (ArduCopter SITL)
