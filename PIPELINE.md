@@ -4,133 +4,130 @@ This document defines the ground-station processing pipeline for AI-assisted
 bridge inspection. It is a **one-way (forward-only) flow**: the drone and ROV
 record all data continuously in a single pass, so the pipeline never signals a
 vehicle to go back and re-capture. When a defect is detected, the system
-**retraces into the already-recorded data** by timestamp and pose to pull the
-co-located LiDAR cloud / camera frame it needs.
+**retraces into the already-recorded data** by timestamp and pose.
 
 Design rule carried from `ARCHITECTURE.md`: **code enforces, models explain.**
-Ingest, decoding, indexing, retrace, LiDAR depth estimation, correlation, and
-severity are deterministic Python. The LLM agents only draft narrative (report)
-and present it (dashboard); they never invent detections or severity.
+Decoding, indexing, retrace, geometry, correlation, severity, evaluation and the
+sign-off gate are deterministic Python. The LLM agents only draft the narrative
+(report) and lay it out (dashboard); they never create detections, severities
+or metrics.
+
+Items marked *(planned)* are buildable with this data but not built yet. They
+are listed again in `ARCHITECTURE.md`.
 
 ---
 
 ## Flow overview
 
 ```
-1. INGEST      Drone + ROV record ALL data continuously (single pass) →
-               delivered to the ground station as rosbag .mcap
-                   │
-                   ▼
-2. DECODE      Read/decode .mcap (ROS2 messages → RGB frames, LiDAR clouds,
-   + INDEX     sonar frames, pose, GPS) + preprocessing.
-               Build a TIME + POSE INDEX over every stream so any (timestamp,
-               pose) can resolve the co-located data from the other sensors.
-                   │
-                   ▼
-3. DETECT      Decoded data → detection models:
-                 drone RGB  → camera YOLO        (crack-detection-yolov8 slot)
-                 ROV sonar  → sonar model         (KD-YOLOX-ViT slot)
-               Each detection carries: class, confidence, 2D mask/box,
-               source frame/scan id, timestamp, pose.
-                   │
-                   ▼
-4. RETRACE     For each defect, look up co-located recorded data via the
-               time+pose index (NO re-capture — the data already exists):
-                 drone → recorded LiDAR cloud covering the defect region
-                 ROV   → recorded camera frame covering the defect region
-                         (clarity-gated: skip if turbidity defeats the camera)
-                   │
-                   ▼
-5. LiDAR       Point-cloud geometric processing (pc_cr / Open3D slot):
-   DEPTH         • project 2D defect mask into the cloud (intrinsics+extrinsics)
-   ESTIMATION    • isolate defect-region points
-                 • fit local surface → measure depth_mm, area_mm2, deviation
-                 • (cross-cycle) register vs. prior cloud → deflection / change
-               → fills the `geometry` block on the detection record.
-                   │
-                   ▼
-6. MAP /       Orthomosaic (near-planar faces) / textured 3D mesh (non-planar) /
-   STITCH      sonar 3D reconstruction (underwater). Georeferenced via GCPs /
-               physical fiducials.
-                   │
-                   ▼
-7. CORRELATE   Merge near-duplicate detections; assign dual location (geodetic +
-   + SEVERITY  structure-relative); cross-cycle feature match → new/existing/
-               worsening; compute severity from RULES using the measured
-               geometry from step 5. All deterministic — not the LLM.
-                   │
-                   ▼
-8. REPORT      AI agent (Claude API, default) drafts a per-element narrative from
-   (Claude)    STRUCTURED DATA ONLY, citing a detection_id for every claim.
-               Backend validates the draft against the structured data;
-               unsupported claims fall back to deterministic rule-based text.
-                   │
-                   ▼
-9. DASHBOARD   A second LLM agent (Claude API, default) handles dashboard
-   (Claude)    updates — it uses model judgment to decide what/how to present
-               the report plus metrics (hardware health, bridge health).
-                   │
-                   ▼
-          Inspector dashboard: draft → under_review → approved/rejected
-                      (human sign-off gate — not optional)
+1. INGEST      Drone + ROV record ALL streams continuously in one pass ->
+               ROS 2 rosbag2 .mcap at the ground station.
+                   |
+                   v
+2. DECODE      Read the .mcap (rosbag.py, extract_rov.py):
+   + INDEX       drone: /odom pose timeline, /camera/rgb + /lidar/points timestamps,
+                        per-waypoint inspection stills + sidecars + telemetry.csv
+                 ROV:   /rov/odom (DVL/EKF pose + heading), /rov/truth/odom (drift only),
+                        /rov/sonar/image, /rov/camera (+ measured visibility),
+                        /rov/status, /coop/tasks
+               Build a TIME + POSE INDEX over every stream (indexing.py).
+               With no .mcap, decode from the frame sidecars instead.
+                   |
+                   v
+3. DETECT      drone RGB  -> camera YOLOv8-seg (Kapuni Model A)
+               ROV sonar  -> sonar YOLO11s (Sonnet Model C), run on the fan
+                             unwarped to range x bearing. Code drops boxes over
+                             25% of the frame, places each box in the world from
+                             the ROV pose + heading + fan geometry, clusters hits
+                             within 1.5 m, and keeps anomalies seen on >= 2 pings.
+               Each detection carries class, confidence, box/mask, source
+               frame/ping id, timestamp, pose and world position.
+                   |
+                   v
+4. RETRACE     For each ROV sonar detection, the time+pose index resolves the
+               co-located recorded ROV camera frame. It confirms the detection
+               only if its RMS contrast >= 0.03 (clarity gate); otherwise the
+               detection stays sonar-only. No re-capture -- the data already exists.
+                   |
+                   v
+5. GEOMETRY    Crop the mission's accumulated world map around each defect's
+               world position (drone: LiDAR map above water; ROV: sonar map
+               below) and fit a local plane (PCA). Report the RMS deviation as
+               local surface roughness in `geometry.depth_mm`. This is not a
+               cavity depth, and no area is claimed.
+               (planned) project the camera mask onto the LiDAR surface to
+               measure area_mm2 -- needs the camera's field of view, which the
+               bags do not record.
+                   |
+                   v
+6. LOCATION    Assign each defect to the nearest bridge element by its world
+               position (correlation.py). The sonar map (from the bag) and the
+               combined above/below-water map are shown in Hyperion's 3D view.
+               (planned) per-wall orthomosaics from the inspection frames
+               projected onto each near-planar wall -- also needs the field of view.
+                   |
+                   v
+7. CORRELATE   Merge near-duplicates (same class + platform within 0.5 m of world
+   + SEVERITY  position); tag new / existing / worsening against a prior-cycle
+               detection list when one is supplied; compute severity from RULES
+               (class, geometry, worsening, confidence cap), recording the rule
+               trail and a fixed recommended action. All deterministic.
+                   |
+                   v
+8. REPORT      Report agent (Claude API by default) drafts a per-element
+   (LLM)       narrative from STRUCTURED DATA ONLY, citing a detection_id for
+               every claim. Code drops lines that cite an unknown id or state an
+               uncited number; if nothing survives, deterministic text is used.
+                   |
+                   v
+9. DASHBOARD   Dashboard agent lays out the validated report + metrics (order,
+   (LLM)       grouping, labels; never values). Hyperion shows defects, report,
+               3D map, frames, accuracy, real platform health and simulated
+               hardware health.
+                   |
+                   v
+   SIGN-OFF    Inspector review in Hyperion: draft -> under_review -> approved /
+               rejected, named reviewer required, approval pinned to the report's
+               hash (review.py). Not optional: the AI cannot change this state.
+
+   EVALUATE    eval_bag.py scores detections against defects_gt.json: precision,
+               recall, F1 per platform and class, plus a confidence sweep.
 ```
 
-No step sends an arrow back to a vehicle. The "alert on detection" is an
-**internal event** that kicks off retrace + LiDAR depth estimation for that
-defect — never an outbound command.
+No step sends an arrow back to a vehicle.
 
 ---
 
 ## Why one-way works (retrace, not re-capture)
 
-Because both platforms record every stream continuously, the data for every
-location is already in the `.mcap`. A detection does not need the vehicle to
-return; it only needs to find the recorded data that covers the same spot:
+Both platforms record every stream continuously, so the data for every location
+is already in the `.mcap`:
 
-- **Drone / crack → LiDAR:** the camera frame that flagged the crack has a
-  timestamp and pose. The time+pose index resolves the LiDAR cloud captured at
-  that same instant/region. Depth estimation runs on that existing cloud.
-- **ROV / sonar → camera:** the sonar detection's timestamp and pose resolve the
-  recorded camera frame covering that region, used to confirm (when water
-  clarity allows; otherwise the defect stays sonar-only).
+- **ROV / sonar -> camera:** a sonar detection's timestamp and pose resolve the
+  recorded camera frame covering that region. The detection is confirmed when
+  that frame is clear enough; otherwise it stays sonar-only.
+- **Drone / camera -> map:** the defect's world position selects the matching
+  patch of the accumulated LiDAR map for the geometry measurement.
 
-This makes the whole pipeline **deterministic and replayable** from a single
-`.mcap` and fits "code enforces." Its one hard requirement is tight cross-sensor
-time-sync + spatial calibration (see the sync/extrinsics Known Gap in
-`ARCHITECTURE.md`): retrace-by-timestamp-and-pose only works if all sensors
-share a clock and are calibrated to one another.
+This makes the pipeline deterministic and replayable from a single `.mcap`. It
+depends on all sensors sharing a clock and being calibrated to each other.
 
 ---
 
-## Model slots in the pipeline
+## Model slots
 
-| Stage | Slot | Candidate | Integration note |
+| Stage | Slot | Model | Note |
 |---|---|---|---|
-| 3 Detect (drone) | camera defect detector | `crack-detection-yolov8` (YOLOv8-seg) | template to fine-tune to multi-class (crack/spall/exposed_rebar/corrosion_stain) |
-| 3 Detect (ROV) | sonar defect detector | `KD-YOLOX-ViT` | ready weights (SWDD/wall) as pretrain base; fine-tune to pier/substructure defect classes + sonar type |
-| 5 LiDAR depth | point-cloud geometry | `pc_cr` / Open3D | no trained model; change-based measurement + single-mission surface fit |
-| 8 Report | LLM report agent | Claude API (default) | model-agnostic interface; local model remains a fallback |
-| 9 Dashboard | LLM dashboard agent | Claude API (default) | true LLM agent; decides what/how to present |
-
----
-
-## LLM agents — Claude API
-
-Both the report agent (step 8) and the dashboard agent (step 9) default to the
-**Claude API**, replacing the repo's local Qwen/vLLM setup. The agent interface
-is kept **model-agnostic** so a local model remains a fallback option, but Claude
-is the intended default.
-
-- This introduces an **external API dependency** (network + API key) that the
-  current self-hosted setup does not have — a deliberate deviation.
-- Both agents remain constrained by "code enforces, models explain": the report
-  agent reads structured data only and is validated against it; the dashboard
-  agent presents already-computed metrics and the validated report.
+| 3 Detect (drone) | camera defect detector | Kapuni Model A (YOLOv8s-seg) | concrete defects; trained on real photos |
+| 3 Detect (ROV) | sonar detector | Sonnet Model C (YOLO11s) | generic seabed-hazard model; output is `sonar_anomaly` only |
+| 5 Geometry | surface fit | none (numpy PCA) | roughness only |
+| 8 Report | LLM report agent | Claude API (default) | local model fallback; optional Kiro CLI |
+| 9 Dashboard | LLM dashboard agent | Claude API (default) | presents only |
 
 ---
 
 ## Related docs
 
-- `ARCHITECTURE.md` — full system design, hardware/sensing, schema, known gaps
-- `DATA_INPUTS.md` — what the drone and ROV must provide (incl. continuous
-  recording + timestamp/pose indexing that make retrace possible)
+- `ARCHITECTURE.md`: system design, implemented vs. planned, known gaps
+- `DATA_INPUTS.md`: what the drone and ROV must provide
+- `README.md`: how to run, results, status

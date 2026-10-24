@@ -1,0 +1,8 @@
+COOP drone flagged D03 (efflorescence at z=0.8 m) -> ROV task queued
+COOP drone flagged D01 (spall at z=1.0 m) -> ROV task queued
+TASK DONE task D03: below efflorescence
+TASK DONE task D01: below spall
+COOP drone flagged D07 (efflorescence at z=1.5 m) -> ROV task queued
+COOP drone flagged D05 (crack at z=1.2 m) -> ROV task queued
+TASK DONE task D07: below efflorescence
+TASK DONE task D05: below crack

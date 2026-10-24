@@ -39,12 +39,19 @@ def voxel_downsample(points, voxel=0.1, max_points=120000):
 
 
 def export_cloud(map_dir: Path, web_data: Path, voxel: float):
+    """Drone LiDAR map plus, for drone+ROV missions, the ROV sonar map (below
+    the water line), merged into one cloud for the 3D view."""
     import numpy as np
-    npy = map_dir / "lidar_map_world.npy"
-    if not npy.exists():
-        print(f"  no cloud at {npy}; skipping 3D export")
+    parts = []
+    for name in ("lidar_map_world", "drone_lidar_world", "rov_sonar_world"):
+        npy = map_dir / f"{name}.npy"
+        if npy.exists() and not (name == "drone_lidar_world" and parts):
+            parts.append(np.load(str(npy))[:, :3])
+            print(f"  cloud part: {npy.name} ({len(parts[-1])} points)")
+    if not parts:
+        print(f"  no cloud in {map_dir}; skipping 3D export")
         return
-    pts = np.load(str(npy))[:, :3]
+    pts = np.concatenate(parts)
     ds = voxel_downsample(pts, voxel=voxel)
     (web_data / "cloud.bin").write_bytes(ds.tobytes())
     mn = ds.min(axis=0).tolist()
@@ -91,6 +98,8 @@ def main() -> int:
     ap.add_argument("--bag", required=True)
     ap.add_argument("--result", default="out/bag_model.json")
     ap.add_argument("--voxel", type=float, default=0.1)
+    ap.add_argument("--eval", default=None,
+                    help="eval_bag.py --out JSON to show in the accuracy panel (omitted: panel hidden)")
     args = ap.parse_args()
 
     bag_dir = Path(args.bag)
@@ -99,6 +108,11 @@ def main() -> int:
 
     result = json.loads(Path(args.result).read_text(encoding="utf-8"))
     (web_data / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    eval_out = web_data / "eval.json"
+    if args.eval:
+        eval_out.write_text(Path(args.eval).read_text(encoding="utf-8"), encoding="utf-8")
+    elif eval_out.exists():
+        eval_out.unlink()   # never show another mission's accuracy numbers
     print(f"exporting web bundle for {bag_dir.name} ...")
     export_cloud(bag_dir / "map", web_data, args.voxel)
     export_frames(bag_dir, web_data, result)

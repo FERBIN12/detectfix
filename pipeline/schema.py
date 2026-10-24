@@ -18,7 +18,14 @@ from typing import Optional
 # alongside structural defects (present in real Isaac-Sim bridge bags).
 DRONE_CLASSES = ("crack", "spall", "exposed_rebar", "corrosion_stain",
                  "efflorescence", "rust_streak")
-ROV_CLASSES = ("scour", "section_loss", "pier_damage")
+# missing_block / undermining / crack are the underwater defects in the
+# drone+ROV Craigie bag (run_20261024_134808): a dislodged wall block, a
+# washed-out footing, and a crack below the water line seen by sonar.
+# sonar_anomaly is what the generic sonar detector reports: "something unusual
+# in the sonar return here", with no defect type (the model was not trained on
+# structural defects).
+ROV_CLASSES = ("scour", "section_loss", "pier_damage", "missing_block", "undermining", "crack",
+               "sonar_anomaly")
 ALL_CLASSES = DRONE_CLASSES + ROV_CLASSES
 
 PLATFORMS = ("drone", "rov")
@@ -86,6 +93,8 @@ class Detection:
     model_version: str = ""
     change_status: Optional[str] = None       # set by CORRELATE, never by the LLM
     severity: Optional[str] = None            # set by SEVERITY rules, never by the LLM
+    severity_reason: Optional[str] = None     # the rules that produced `severity` (code-generated)
+    recommended_action: Optional[str] = None  # fixed action text keyed on severity (code-generated)
     source_frame_id: str = ""                 # the frame/scan that produced the detection
     confirmed: Optional[bool] = None          # ROV: camera-confirmed a sonar hit (clarity-gated)
     world_pos: Optional[list] = None          # [x,y,z] world position used for 3D viz / crop

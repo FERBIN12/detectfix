@@ -47,3 +47,32 @@ def download_camera_weights() -> str:
     import shutil
     shutil.copyfile(cached, CAMERA_LOCAL)
     return str(CAMERA_LOCAL)
+
+
+# The ROV sonar detector. No public model detects structural defects in sonar;
+# this is the closest generic one found: "Sonnet Model C" (SnippyCodes, SIH
+# 2026), a YOLO11s trained on side-scan sonar for seabed hazards (pipeline /
+# shipwreck / mine_cylinder / ghost_net / crab_pot). The pipeline treats every
+# box it returns as a generic "sonar_anomaly". The repo shows no licence, so
+# the weights are downloaded at run time and never committed.
+SONAR_URL = ("https://raw.githubusercontent.com/SnippyCodes/Sonnet-Model-/main/"
+             "weights/model_hazard_5class/best.pt")
+SONAR_LOCAL = WEIGHTS_DIR / "sonnet_model_c.pt"
+
+
+def resolve_sonar_weights(explicit: Optional[str] = None, download: bool = True) -> Optional[str]:
+    """Return a local path to the sonar detector weights, downloading if needed."""
+    if explicit:
+        p = Path(explicit)
+        if p.exists():
+            return str(p)
+    if SONAR_LOCAL.exists():
+        return str(SONAR_LOCAL)
+    if not download:
+        return None
+    import urllib.request
+    WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = SONAR_LOCAL.with_suffix(".part")
+    urllib.request.urlretrieve(SONAR_URL, tmp)
+    tmp.replace(SONAR_LOCAL)
+    return str(SONAR_LOCAL)

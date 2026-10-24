@@ -1,188 +1,215 @@
-# Bridge-Inspection Detection Pipeline
+# Bridge-Inspection Detection Pipeline + Hyperion dashboard
+
+**Challenge track:** Robotics — Safer Inspection of Critical Infrastructure.
 
 A one-way (forward-only) ground-station pipeline that turns a recorded drone +
-ROV mission into a reviewed inspection report. It implements the flow in
-[`PIPELINE.md`](PIPELINE.md) and the data contract in
-[`DATA_INPUTS.md`](DATA_INPUTS.md); the system design is in
-[`ARCHITECTURE.md`](ARCHITECTURE.md).
+ROV bridge-inspection mission (ROS 2 rosbag2 `.mcap`) into a reviewed inspection
+report, shown in the **Hyperion** web dashboard. It covers two directions from
+the track brief: defect detection and segmentation on inspection imagery
+(drone camera + ROV sonar), and rule-based condition rating with a recommended
+action per defect.
 
-Design rule: **code enforces, models explain.** Ingest, indexing, retrace, LiDAR
-depth estimation, correlation and severity are deterministic Python. The two LLM
-agents (report + dashboard) only narrate and present the structured result, and
-every report claim is validated against the detection data.
+Design rule: **code enforces, models explain.** Decoding, indexing, retrace,
+geometry, correlation, severity, evaluation, hardware status and the sign-off
+gate are deterministic Python. The two LLM agents (report + dashboard) only
+narrate and lay out the structured result, and every report claim is validated
+against the detection data.
+
+Docs: [`PIPELINE.md`](PIPELINE.md) (the flow), [`ARCHITECTURE.md`](ARCHITECTURE.md)
+(design, implemented vs. planned), [`DATA_INPUTS.md`](DATA_INPUTS.md) (data contract).
 
 ## Flow
 
 ```
-1-2 ingest + decode + index  .mcap -> captures -> time/pose index   (indexing.py)
-3   detect                   camera YOLO + sonar model              (detection.py)
-4   retrace                  pull co-located recorded LiDAR/camera  (indexing.py, detection.py, lidar.py)
-5   LiDAR depth estimation   measure depth/area -> geometry block   (lidar.py)
-6   map/stitch               (location assignment stands in here)   (correlation.py)
-7   correlate + severity     merge, locate, change-tag, rule severity (correlation.py, severity.py)
-8   report agent (Claude)    draft narrative, validate vs. data     (agents.py)
-9   dashboard agent (Claude) present report + metrics               (agents.py)
+1-2 decode + index    .mcap -> captures -> time/pose index                (rosbag.py, indexing.py, extract_rov.py)
+3   detect            drone camera YOLOv8-seg; ROV sonar YOLO11s          (detection.py, rov.py)
+4   retrace           ROV camera frame co-located with each sonar hit,    (indexing.py, rov.py)
+                      clarity-gated on measured frame contrast
+5   geometry          surface roughness from the LiDAR / sonar world maps (lidar.py)
+6   location          element assignment from defect world positions      (correlation.py)
+7   correlate+severity merge duplicates, change vs prior cycle, rule      (correlation.py, severity.py)
+                      severity + rule trail + recommended action
+8   report agent      Claude drafts; code drops uncited/unknown-ID lines  (agents.py)
+9   dashboard agent   Claude lays out the metrics; values never change    (agents.py)
+    sign-off          draft -> under_review -> approved / rejected        (review.py, Hyperion)
+    evaluate          precision / recall vs defects_gt.json               (evaluation.py, eval_bag.py)
 ```
 
 No step signals a vehicle. "Trigger on detection" is an internal retrace into
 already-recorded data, keyed by timestamp + pose.
 
-## Model slots
+## Models
 
-| Stage | Slot | Model |
+| Stage | Model | Notes |
 |---|---|---|
-| Detect (drone) | camera defect detector | [crack-detection-yolov8](https://github.com/sibghatullah78/crack-detection-yolov8) (YOLOv8-seg) |
-| Detect (ROV) | sonar defect detector | [KD-YOLOX-ViT](https://github.com/remaro-network/KD-YOLOX-ViT) |
-| LiDAR depth | point-cloud geometry | [pc_cr](https://github.com/yliu17lhr/pc_cr) / Open3D (no trained model) |
-| Report + Dashboard | LLM agents | Claude API (default), local vLLM fallback |
+| Drone camera | **Kapuni Model A** ([`iloveass/kompon-damage-severity-detection`](https://huggingface.co/iloveass/kompon-damage-severity-detection), YOLOv8s-seg) | crack / spalling / rebar corrosion / severe distress / microcrack, mapped to the pipeline's classes in `detection.CAMERA_CLASS_MAP`. Auto-downloaded into `weights/` |
+| ROV sonar | **Sonnet Model C** ([SnippyCodes/Sonnet-Model-](https://github.com/SnippyCodes/Sonnet-Model-), YOLO11s) | Trained on side-scan seabed hazards, **not** bridge defects; every box is reported as a generic `sonar_anomaly`. No licence is stated, so the weights are downloaded at run time and never committed |
+| Geometry | none (PCA plane fit, numpy) | local surface roughness, not cavity depth |
+| Report + dashboard agents | Claude API (`claude-sonnet-5-5`) | fallback: local OpenAI-compatible model, then deterministic text. Opt-in: Kiro CLI (below) |
+
+## Data
+
+Two simulated missions on the Craigie Drawbridge, Boston (Isaac Sim + ArduPilot SITL):
+
+| Mission | Platforms | Ground truth | Full bag |
+|---|---|---|---|
+| `run_20261024_123507` | drone (RGB, LiDAR, GNSS) | 9 above-water defects | 1.5 GB `.mcap` |
+| `run_20261024_134808` | drone + BlueROV2 (multibeam sonar, camera, DVL) cooperating | 9 above + 4 underwater defects | 2.2 GB `.mcap` |
+
+The full bags are too large for GitHub and are not in the repo.
+**`sample_data/`** holds both missions trimmed to about 40 MB each (built with
+`make_sample.py`): inspection frames + telemetry, ground truth, the ROV extract,
+and the LiDAR / sonar maps kept at full resolution within 1.5 m of every defect
+and frame aim point. With no `.mcap` present, `run_bag.py` decodes from the
+frame sidecars instead, and a GT run on the drone+ROV sample gives detections
+identical to the full bag. The sonar model needs the `.mcap`; on the sample it
+uses the cached results in `rov/sonar_detections_unwarp.csv` if a finished run
+was cached.
 
 ## Run
 
-Mock mode needs **no dependencies** (standard library only) and uses the demo
-fixture:
+Mock mode needs only the standard library:
 
 ```bash
-python run.py                     # runs fixtures/demo_mission.json
-python run.py --out out/demo.json # also write the full result
+python run.py                     # fixtures/demo_mission.json
+python -m unittest discover -s tests
 ```
 
-### Real ROS2 bag
-
-`run_bag.py` runs the flow on an actual rosbag2 `.mcap` drone mission. It
-decodes `/odom` (pose timeline), `/lidar/points` (retrace index) and
-`/camera/rgb`, then runs the **real YOLOv8-seg defect model** over the
-per-waypoint stills in `inspection_frames/`.
+Real missions (`pip install -r requirements.txt`):
 
 ```bash
-pip install mcap mcap-ros2-support zstandard numpy ultralytics huggingface_hub
-# real model inference (weights auto-downloaded on first run):
-python run_bag.py --bag ../data/run_20261024_123507 --detector model --out out/bag_model.json
-# or use the bag's ground truth as the detection source instead:
-python run_bag.py --bag ../data/run_20261024_123507 --detector gt --out out/bag_gt.json
+# from the committed sample (no .mcap needed)
+python run_bag.py --bag sample_data/run_20261024_134808 --detector gt --out out/sample.json
+
+# full drone+ROV bag
+python extract_rov.py --bag <BAG_DIR>             # once per bag: ROV streams -> <bag>/rov/
+python run_bag.py --bag <BAG_DIR> --detector model --conf 0.15 \
+    --rov-detector model --sonar-stride 5 --out out/coop.json
+python eval_bag.py --result out/coop.json --bag <BAG_DIR> --out out/coop_eval.json
 ```
 
-The camera detector is **Kapuni Model A**
-(`iloveass/kompon-damage-severity-detection`, YOLOv8s-seg), a multi-class
-concrete-defect model (crack / spalling / rebar corrosion / severe distress /
-microcrack) auto-downloaded into `weights/`. Its class names are mapped onto the
-pipeline's drone schema in `detection.CAMERA_CLASS_MAP`.
+- `--detector model|gt`: drone detections from the camera model, or from `defects_gt.json` (labelled ground truth).
+- `--rov-detector model|gt|none`: ROV detections from the sonar model (default with `--detector model`), underwater ground truth, or none.
+- `--sonar-stride N`: run the sonar model on every Nth ping. It takes about 1 s per ping on CPU, so stride 5 takes about 5-7 min. Results are cached in `<bag>/rov/sonar_detections_<mode>.csv`; a cache from an unfinished run is ignored. `--rerun-sonar` forces a fresh run.
+- GT defects below the water line (z < 0) belong to the ROV.
 
-> Windows note: `run_bag.py` sets `KMP_DUPLICATE_LIB_OK` / `OMP_NUM_THREADS=1`
-> to avoid a torch<->numpy OpenMP clash that can otherwise hard-crash the
-> process during point-cloud math.
+> Windows: the entry points set `KMP_DUPLICATE_LIB_OK` / `OMP_NUM_THREADS=1` to avoid a torch/numpy OpenMP crash.
 
-### Annotated frames + video
-
-`annotate_frames.py` runs the real model over each inspection frame, draws the
-**segmentation masks + boxes + class/confidence labels**, writes annotated PNGs
-to `web/data/annotated/`, and encodes a browser-playable **H.264 video**
-(`web/data/feed.mp4`).
+### Hyperion dashboard
 
 ```bash
-pip install imageio imageio-ffmpeg   # bundled ffmpeg for H.264 encoding
-python annotate_frames.py --bag <BAG_DIR> --conf 0.15 --fps 3
-# optional: a full-motion video from the whole /camera/rgb stream (slow, CPU)
-python annotate_frames.py --bag <BAG_DIR> --rgb-video
+python annotate_frames.py --bag <BAG_DIR> --conf 0.15                     # optional: masks/boxes + H.264 feed
+python export_web.py --bag <BAG_DIR> --result out/coop.json --eval out/coop_eval.json
+python serve.py --bag <BAG_DIR> --port 8099                               # http://127.0.0.1:8099
 ```
 
-### Web dashboard
+**Bridge Defects tab**
+- metric cards with a one-line meaning each
+- 3D view: LiDAR map above water plus sonar map below, with defect markers by severity
+- inspection-frame feed
+- per-element condition cards with the recommended action
+- the AI report, with per-claim detection-ID citations
+- detections table
+- accuracy panel (from `--eval`)
+- detail drawer (click a row, card item or 3D marker): why the severity was set (rule trail from `severity.py`), the recommended action, what the class means, what the measurement means, how it was captured, reliability, and location
 
-A standalone web dashboard (themed to match the companion `navfix` dashboard)
-visualises a pipeline run: health metrics, the AI report (with per-claim
-detection-id citations), a detections table, a **3D LiDAR projection** (the
-accumulated world map rendered in-browser with Three.js and defect markers
-colour-coded by severity), and an **inspection feed** with two modes — annotated
-stills (masks/boxes drawn on) and the encoded H.264 video.
+**Sign-off gate:** the report has a review state, draft → under review → approved / rejected.
+- Approve and reject need a named reviewer.
+- The server enforces the allowed transitions (`pipeline/review.py`).
+- Each approval is pinned to a hash of the exact report it approved. A re-run that changes the report resets the state to draft.
+- Records are stored in `out/reviews/`.
 
-```bash
-# 1. run the pipeline on the bag (writes out/bag_model.json)
-python run_bag.py --bag <BAG_DIR> --detector model --out out/bag_model.json
-# 2. annotate frames + encode video (web/data/annotated/, web/data/feed.mp4)
-python annotate_frames.py --bag <BAG_DIR> --conf 0.15
-# 3. export the web bundle (downsampled cloud + result + frame manifest)
-python export_web.py --bag <BAG_DIR> --result out/bag_model.json
-# 4. serve it
-python serve.py --bag <BAG_DIR> --port 8099
-# open http://127.0.0.1:8099
-```
+**Platform Health tab**
+- **Real:** drone mission and data quality from telemetry (utilization, RTK/HDOP, LiDAR returns), and ROV navigation and sensing from the bag (DVL lock, drift vs truth, depth, camera visibility, coop dives).
+- **Simulated, and labelled as such:** hardware health for both vehicles (battery and cells, motor/thruster temperatures, companion computer, data links, leak sensors), with OK/WARN/FAULT set by thresholds in `pipeline/hardware.py`. The bags record no hardware telemetry.
 
-The 3D view loads a voxel-downsampled copy of `lidar_map_world.npy` (full
-precision is kept for defect positions).
-Files: `serve.py`, `export_web.py`, `annotate_frames.py`, `web/*`.
+## Results
 
-LiDAR geometry here is measured off the mission's accumulated world map
-(`lidar_map_world.npy`) as **local surface roughness** (PCA plane fit,
-orthogonal-distance RMS in mm) around each defect. That is the honest metric the
-map supports -- it is **not** a defect cavity depth, so no `area_mm2` is claimed.
-Severity for GT-sourced detections comes from the bag's 1-3 rating, not the
-roughness.
+| Run | Scope | Found | Precision | Recall |
+|---|---|---|---|---|
+| Camera model, `run_20261024_123507` | 9 drone GT | 4 of 9 | 0.40 | 0.44 |
+| Camera model, `run_20261024_134808` | 9 drone GT | 3 of 9 | 0.38 | 0.33 |
+| Sonar model (stride 5, unwarped fan), `run_20261024_134808` | 4 ROV GT | 1 of 4 (D13) | 0.07 | 0.25 |
+| GT self-check, both missions | all | all | 1.00 | 1.00 |
 
-## Status / what is real vs. stubbed
+Matching is one-to-one, closest first, within 8 m and on the same element.
+Prediction positions are frame-level aim points, not pixel-level, so a tighter
+radius would score the projection rather than the detector.
+
+What this shows: the pipeline runs end to end on both missions; the detectors
+are the weak link. The camera model was trained on real photos and mostly
+reports low-confidence cracks on the simulated walls. The sonar model is a
+generic seabed-hazard detector and barely beats chance on a forward-looking
+multibeam fan. Bridge-specific training data for both is the next step.
+
+## Status
 
 | Piece | State |
 |---|---|
-| `.mcap` decode, time/pose index, retrace | real — runs on an actual rosbag2 bag |
-| Drone camera detector (YOLOv8-seg) | **real model inference** (Kapuni Model A) |
-| Sonar detector (ROV) | wired, **not exercised** — this bag is drone-only |
-| LiDAR geometry (surface roughness) | real, measured off the world-map point cloud |
-| Correlation + rule-based severity | real |
-| Report / dashboard LLM agents | **Claude by default**, falls back to deterministic text with no key |
-| Web dashboard (3D + feed + video) | real, served locally |
-
-Honest caveats worth knowing: the model was trained on real photos, so on
-simulated imagery some detections are low-confidence (tune `--conf`); the bag
-carries no sonar, so the ROV half of the flow is untested; and the LLM report is
-deterministic text unless an `ANTHROPIC_API_KEY` is provided.
-
-Live mode decodes a real `.mcap` and loads real weights:
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env              # add ANTHROPIC_API_KEY for the Claude agents
-python run.py --mode live --mcap bags/mission1.mcap \
-  --camera-weights weights/crack_yolov8_seg.pt \
-  --sonar-weights weights/kd_yolox_vit.pth
-```
+| `.mcap` decode, time/pose index, frame-sidecar fallback | real |
+| Drone camera detector | real model inference |
+| ROV streams (sonar, camera, DVL nav, status, coop tasks) | real, from the drone+ROV bag |
+| ROV sonar detector | real inference, generic model (`sonar_anomaly`) |
+| ROV camera confirm | real, clarity-gated (RMS contrast >= 0.03) |
+| Geometry | real surface roughness from the LiDAR / sonar maps; no area, no cavity depth |
+| Correlation, change tagging vs prior cycle, rule severity, recommended action | real (change tagging needs a prior-cycle file; only the mock fixture has one) |
+| Report / dashboard agents | Claude by default; deterministic text with no key |
+| Sign-off gate | real, server-enforced |
+| Hardware health | **simulated**, labelled |
+| Evaluation vs ground truth | real |
+| Planned, not built | see the table in [`ARCHITECTURE.md`](ARCHITECTURE.md#implemented-vs-planned) |
 
 ## Agents / secrets
 
-The report and dashboard agents default to the **Claude API**. Configure via
-`.env` (see `.env.example`): `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, and
-`AGENT_BACKEND` (`claude` or `local`). If Claude is unreachable the pipeline
-falls back to the local model, then to deterministic rule-based text, so it
-always produces a report. `.env` is gitignored.
+Configure in `.env` (copy `.env.example`; `.env` is gitignored):
+- `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`
+- `AGENT_BACKEND`: `claude`, `local` or `kiro`
 
-## Tests
+Fallback order: Kiro CLI (if selected and installed), then the Claude API, then the local model, then deterministic text. The pipeline always produces a report.
 
-```bash
-python -m unittest discover -s tests -v
-```
+**Optional Kiro CLI backend** (`AGENT_BACKEND=kiro`): the agents call
+`kiro-cli chat --no-interactive` with the prompt on stdin and no trusted tools,
+using Kiro subscription credits.
+- **Auth:** `KIRO_API_KEY`, or a prior `kiro-cli login`.
+- **Status:** a demo option, not the default. Kiro's terms list software-development automation as the permitted automated use.
+
+## How Kiro was used
+
+See `KIRO.md` (added once the spec-driven work is complete). The `.kiro/`
+directory holds the project's hooks and MCP settings.
 
 ## Layout
 
 ```
-bridge-inspection/
-  run.py              entry point for the demo/mock + generic live flow
-  run_bag.py          run the flow on a real ROS2 .mcap drone mission
-  annotate_frames.py  draw masks/boxes on frames + encode the H.264 video
-  export_web.py       build the web data bundle (cloud + result + frames)
-  serve.py            stdlib HTTP server for the web dashboard
-  config.json         non-secret runtime settings
-  .env.example        secret template (Claude key, backend)
-  requirements.txt    live-mode deps (mock needs none)
-  pipeline/
-    schema.py         normalized detection record (the convergence point)
-    config.py         .env + config.json loading
-    indexing.py       .mcap decode, time/pose index, retrace
-    detection.py      camera + sonar detectors (mock/live)
-    rosbag.py         real rosbag2 decode, pose join, frame detection
-    weights.py        auto-download the camera defect weights
-    lidar.py          LiDAR geometry (surface roughness; Open3D + numpy/pure-Python)
-    correlation.py    merge, dual-location, cross-cycle change tagging
-    severity.py       rule-based condition states
-    agents.py         Claude report + dashboard agents (validated)
-    orchestrator.py   wires the one-way flow together
-  fixtures/           offline demo bag, element map, prior cycle
-  web/                dashboard UI (index.html, app.js, style.css)
-  tests/              unittest smoke + behavior tests
+run.py              mock / generic live entry point
+run_bag.py          run the flow on a real rosbag2 mission (or a sample_data/ mission)
+extract_rov.py      ROV streams of a drone+ROV .mcap -> <bag>/rov/ CSVs + stills
+eval_bag.py         score a result against defects_gt.json
+make_sample.py      build a git-sized mission sample under sample_data/
+annotate_frames.py  draw masks/boxes on frames + encode the H.264 feed
+export_web.py       build web/data/ for Hyperion
+serve.py            stdlib HTTP server for Hyperion (+ /api/review)
+pipeline/
+  schema.py         normalized detection record
+  config.py         .env + config.json loading
+  indexing.py       time/pose index + retrace
+  rosbag.py         rosbag2 decode, frame-sidecar fallback, GT detections, water line
+  detection.py      camera + sonar detector slots
+  rov.py            ROV captures, sonar model run/cache/clustering, clarity gate, ROV health
+  weights.py        download camera + sonar weights
+  lidar.py          surface roughness from LiDAR / sonar maps
+  correlation.py    merge, element assignment, change tagging
+  severity.py       rule severity, rule trail, recommended action
+  evaluation.py     GT matching + precision / recall
+  health.py         platform health (real) + hardware block
+  hardware.py       simulated hardware telemetry + status thresholds
+  review.py         sign-off state machine
+  agents.py         report + dashboard agents (Claude / local / Kiro CLI), claim validation
+  orchestrator.py   mock-mode flow
+scripts/            guard_env_commit.py (used by the .env commit hook)
+fixtures/           offline demo mission (mock mode)
+sample_data/        both missions, trimmed
+web/                Hyperion UI; web/data/ is generated and gitignored
+tests/              unittest suites (stdlib only)
+.kiro/              hooks + MCP settings
 ```

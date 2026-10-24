@@ -1,0 +1,1 @@
+{"i": 1, "element": "transit", "drone": [-36.059989341876445, -50.04653275367579, 3.167879934310913], "target": [-35.58215364164631, -38.472852015704234, 1.5], "standoff_m": 25.27756118774414, "gnss": {"sats": 12, "hdop": 1.21, "fix": "RTK FIXED   |  ArduCopter AUTO  ARMED  item 2/37"}}

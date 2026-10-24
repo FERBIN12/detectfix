@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bridge Inspection — Command View</title>
+<title>Hyperion — Bridge Inspection</title>
 <link rel="stylesheet" href="/web/style.css" />
 <script type="importmap">
 {
@@ -17,7 +17,7 @@
 <body>
   <header>
     <div class="title">
-      <h1>Bridge Inspection</h1>
+      <h1>Hyperion</h1>
       <span id="mission" class="mission">loading…</span>
     </div>
     <nav class="tabs">
@@ -31,10 +31,16 @@
   <main id="view-defects" class="layout">
     <section class="panel kpi-row">
       <div id="metrics" class="metric-grid"></div>
+      <p class="help">Counts of defects after duplicate merging. Severity is set by fixed rules in
+        code (class, measured geometry, change since last cycle, confidence) &mdash; never by the AI.
+        Click any detection row or 3D marker for the full record.</p>
     </section>
 
     <section class="panel viz">
       <h2>3D LiDAR projection <small id="cloud-info"></small></h2>
+      <p class="help">The mission's accumulated LiDAR map (above water) and, on drone+ROV missions,
+        the ROV's sonar map (below water), thinned for the browser. Spheres mark defects, coloured by
+        severity; click one for details. Drag to orbit, scroll to zoom.</p>
       <div id="viewer" class="viewer"><div class="hint">loading point cloud…</div></div>
       <div class="legend">
         <span><i class="dot severe"></i>severe</span>
@@ -46,6 +52,8 @@
 
     <section class="panel feed">
       <h2>Captured imagery <small id="feed-info"></small></h2>
+      <p class="help">One drone still per mission waypoint. Thumbnails outlined in orange contain a
+        detection; tags show class and model confidence.</p>
       <div class="feed-mode">
         <button id="mode-stills" class="on">Annotated stills</button>
         <button id="mode-video">Video</button>
@@ -66,16 +74,25 @@
 
     <section class="panel elements">
       <h2>Per-element condition</h2>
+      <p class="help">Each bridge element's worst condition state (AASHTO-style good / fair / poor /
+        severe), its defects, and the follow-up action the rules assign to the worst one.</p>
       <div id="element-cards" class="element-cards"></div>
     </section>
 
     <section class="panel report-panel">
       <h2 id="report-h">Engineering assessment (AI draft)</h2>
+      <div id="review" class="review"></div>
+      <p class="help">Narrative drafted from the structured detections only. Every line cites a
+        detection ID; lines citing an unknown ID or stating an uncited number are removed by code.
+        "rule-based" means no AI backend was reachable and deterministic text was used. A licensed
+        inspector signs off before this becomes a record.</p>
       <div id="report" class="report">—</div>
     </section>
 
     <section class="panel table">
       <h2>Detections</h2>
+      <p class="help">Click a row for why it got its severity, what the measurement means, how it was
+        captured, and the recommended action. Geometry is LiDAR/sonar surface roughness, not cavity depth.</p>
       <table id="det-table">
         <thead><tr>
           <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th>
@@ -84,12 +101,41 @@
         <tbody></tbody>
       </table>
     </section>
+
+    <section class="panel eval-panel" id="eval-panel" hidden>
+      <h2>Detector accuracy vs. ground truth</h2>
+      <p class="help">From <code>eval_bag.py</code>: each ground-truth defect is matched to at most one
+        detection (closest first, within the match radius, same element). Precision = share of
+        detections that are real; recall = share of real defects found.</p>
+      <div id="eval-body"></div>
+    </section>
   </main>
+
+  <!-- detection detail drawer -->
+  <div id="detail-backdrop" class="detail-backdrop" hidden></div>
+  <aside id="detail" class="detail" hidden aria-label="Detection detail">
+    <button id="detail-close" class="detail-close" aria-label="Close">&times;</button>
+    <div id="detail-body"></div>
+  </aside>
 
   <!-- ===================== TAB 2 — PLATFORM HEALTH ===================== -->
   <main id="view-health" class="layout" hidden>
+    <section class="panel hw-banner" id="hw-banner">
+      <h2>Hardware health monitoring <span class="badge sim">simulated telemetry</span></h2>
+      <p class="help">Battery, motors/thrusters, thermals, data links and leak sensors for each vehicle.
+        The recorded bags contain no hardware telemetry, so these values are a deterministic mock
+        (same mission, same values). Each status (OK / WARN / FAULT) is set by fixed thresholds in
+        <code>pipeline/hardware.py</code>. Mission and sensor data quality below it is real.</p>
+      <div id="hw-alerts"></div>
+    </section>
+    <section class="panel hw" id="hw-drone"></section>
+    <section class="panel hw" id="hw-rov"></section>
     <section class="panel platform" id="drone-panel">
       <h2>Drone <small id="drone-model"></small> <span id="drone-badge"></span></h2>
+      <p class="help">Computed from the recorded telemetry. Inspecting = time aimed at a bridge element;
+        transit = moving between them. RTK-fixed share and HDOP (lower is better, &le;1.5 is excellent)
+        describe how trustworthy each defect's GPS tag is. Low-return steps are LiDAR scans with under
+        half the median point count.</p>
       <div id="drone-kpis" class="metric-grid"></div>
       <h3>Mission utilization</h3>
       <div id="drone-util" class="util-bars"></div>
@@ -101,6 +147,11 @@
 
     <section class="panel platform" id="rov-panel">
       <h2>ROV <small id="rov-model"></small> <span id="rov-badge"></span></h2>
+      <p class="help">The ROV has no GPS underwater; it navigates on a DVL (Doppler velocity log).
+        Drift is the gap between where it believed it was and the simulator's true position, which bounds
+        how accurately underwater defects are placed. A sonar hit counts as camera-confirmed only if a
+        co-located camera frame is clear enough (RMS contrast &ge; 0.03). On a drone-only mission this
+        panel shows labelled filler, never invented values.</p>
       <div id="rov-kpis" class="metric-grid"></div>
       <h3>Mission utilization</h3>
       <div id="rov-util" class="util-bars"></div>

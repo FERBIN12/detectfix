@@ -30,7 +30,8 @@ def drone_health(bag_dir: str) -> Optional[dict]:
     csv_path = Path(bag_dir) / "inspection_frames" / "telemetry.csv"
     if not csv_path.exists():
         return None
-    rows = list(csv.DictReader(csv_path.open(encoding="utf-8-sig")))
+    with csv_path.open(encoding="utf-8-sig", newline="") as fh:
+        rows = list(csv.DictReader(fh))
     if not rows:
         return None
 
@@ -155,11 +156,25 @@ def rov_health_filler() -> dict:
     }
 
 
-def build_health(bag_dir: str) -> dict:
-    """Both platforms' health for the dashboard. Drone is real; ROV is filler."""
+def build_health(bag_dir: str, detections=None) -> dict:
+    """Both platforms' health for the dashboard. The ROV block is real when the
+    mission has a rov/ extract (extract_rov.py), otherwise explicit filler."""
+    from . import rov
+
+    from . import hardware
+
     drone = drone_health(bag_dir)
+    real_rov = rov.rov_health(bag_dir, detections)
     return {
         "drone": drone,
-        "rov": rov_health_filler(),
+        "rov": real_rov or rov_health_filler(),
         "has_real_drone": drone is not None,
+        "has_real_rov": real_rov is not None,
+        # Simulated hardware telemetry (battery, motors, thermals, links, leaks):
+        # the bags record none of it. Labelled is_simulated on every block.
+        "hardware": hardware.simulate(
+            Path(bag_dir).name,
+            drone_duration_s=(drone or {}).get("mission", {}).get("duration_s", 0.0),
+            rov_duration_s=(real_rov or {}).get("mission", {}).get("duration_s", 0.0),
+            rov_flown=real_rov is not None),
     }

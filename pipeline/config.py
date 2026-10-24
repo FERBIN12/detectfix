@@ -38,8 +38,16 @@ FALLBACK_LLM_URL = os.getenv("FALLBACK_LLM_URL", "http://127.0.0.1:8000/v1").rst
 FALLBACK_LLM_MODEL = os.getenv("FALLBACK_LLM_MODEL", "")
 FALLBACK_LLM_API_KEY = os.getenv("FALLBACK_LLM_API_KEY", "")
 
-# Which agent backend to use: "claude" (default) or "local".
+# Which agent backend to use: "claude" (default), "local", or "kiro".
 AGENT_BACKEND = os.getenv("AGENT_BACKEND", "claude").strip().lower()
+
+# Kiro CLI headless backend (opt-in, AGENT_BACKEND=kiro). Uses the Kiro
+# subscription's credits; auth is KIRO_API_KEY in the environment or an
+# existing `kiro-cli login` session. No tools are trusted, so the agent can
+# only answer from the prompt.
+KIRO_CLI = os.getenv("KIRO_CLI", "kiro-cli")
+KIRO_MODEL = os.getenv("KIRO_MODEL", "")          # e.g. claude-sonnet-4.6; "" = account default
+KIRO_TIMEOUT = float(os.getenv("KIRO_TIMEOUT", "180"))
 
 
 def load_config(path: str | None = None, mode: str | None = None, port: int | None = None) -> dict:

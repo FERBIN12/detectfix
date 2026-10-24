@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run tests when pipeline code changes",
+      "trigger": "PostFileSave",
+      "description": "After the agent saves any pipeline/*.py file, run the full unittest suite (unit + Hypothesis property tests) so regressions surface on the same turn.",
+      "matcher": "(^|[\\\\/])pipeline[\\\\/].*\\.py$",
+      "action": {
+        "type": "command",
+        "command": "python -m unittest discover -s tests",
+        "timeout": 180
+      }
+    }
+  ]
+}
