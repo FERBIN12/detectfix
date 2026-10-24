@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+logs/
+logs_*.log
+ai/*.log
+sitl/run/
+data/flight_*/
+data/run_*/
+data/stills/*.png
+!data/stills/canal.png
+!data/stills/drone.png
+!data/stills/under.png
+third_party/
+ref/
+WIN_PLAN.md
+sim/gui.log
+sim/bridge_world_v1.py

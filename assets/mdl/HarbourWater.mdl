@@ -1,0 +1,23 @@
+mdl 1.6;
+// Turbid harbour water: Fresnel (IOR 1.333) glossy reflection over a diffuse, light-absorbing silty body.
+// Fine capillary ripples come from an animated tangent-space normal map tiled on the mesh UVs (world metres / tile).
+import ::df::*;
+import ::base::*;
+import ::state::*;
+import ::tex::*;
+import ::anno::*;
+
+export material HarbourWater(
+    uniform texture_2d normal_map_texture = texture_2d(),
+    uniform float normal_strength = 1.0,
+    color body_color = color(0.030, 0.040, 0.026),
+    float roughness = 0.025
+) = let {
+    base::texture_coordinate_info uvw = base::coordinate_source(coordinate_system: base::texture_coordinate_uvw, texture_space: 0);
+    float3 n = base::tangent_space_normal_texture(texture: normal_map_texture, factor: normal_strength, uvw: uvw);
+    bsdf spec = df::simple_glossy_bsdf(roughness_u: roughness, roughness_v: roughness, tint: color(1.0), mode: df::scatter_reflect);
+    bsdf silt = df::diffuse_reflection_bsdf(tint: body_color);
+} in material(
+    surface: material_surface(scattering: df::fresnel_layer(ior: 1.333, layer: spec, base: silt)),
+    geometry: material_geometry(normal: n)
+);

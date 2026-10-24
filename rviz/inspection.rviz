@@ -1,0 +1,184 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /TF1
+      Splitter Ratio: 0.5
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 100
+      Normal Cell Count: 0
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Color: 160; 160; 164
+      Alpha: 0.5
+      Plane: XY
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Names: true
+      Show Axes: true
+      Show Arrows: true
+      Marker Scale: 0.5
+      Update Interval: 0
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry
+      Enabled: true
+      Topic:
+        Value: /odom
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Covariance:
+        Value: false
+      Keep: 1
+      Shape:
+        Value: Arrow
+        Color: 255; 25; 0
+        Shaft Length: 1
+        Shaft Radius: 0.05
+        Head Length: 0.3
+        Head Radius: 0.1
+    - Class: rviz_default_plugins/Path
+      Name: Path
+      Enabled: true
+      Topic:
+        Value: /path
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Color: 25; 255; 0
+      Line Style: Lines
+      Alpha: 1
+    - Class: rviz_default_plugins/Path
+      Name: Mission
+      Enabled: true
+      Topic:
+        Value: /mission
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Color: 255; 255; 255
+      Line Style: Billboards
+      Line Width: 0.05
+      Alpha: 0.6
+    - Class: rviz_default_plugins/MarkerArray
+      Name: MissionMarkers
+      Enabled: true
+      Topic:
+        Value: /mission/markers
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Namespaces:
+        {}
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Defects
+      Enabled: true
+      Topic:
+        Value: /defects
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Namespaces:
+        {}
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Lidar
+      Enabled: true
+      Topic:
+        Value: /lidar/points
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Style: Points
+      Size (Pixels): 3
+      Size (m): 0.03
+      Alpha: 1
+      Decay Time: 0
+      Color Transformer: Intensity
+      Channel Name: intensity
+      Use rainbow: true
+      Invert Rainbow: false
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Map
+      Enabled: true
+      Topic:
+        Value: /map
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Style: Points
+      Size (Pixels): 3
+      Size (m): 0.05
+      Alpha: 1
+      Decay Time: 0
+      Color Transformer: AxisColor
+      Axis: Z
+      Autocompute Value Bounds:
+        Value: true
+    - Class: rviz_default_plugins/Image
+      Name: CameraRGB
+      Enabled: true
+      Topic:
+        Value: /camera/rgb
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+    - Class: rviz_default_plugins/Image
+      Name: CameraThermal
+      Enabled: true
+      Topic:
+        Value: /camera/thermal
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Target Frame: <Fixed Frame>
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Distance: 60
+      Pitch: 0.5
+      Yaw: 0.785
+      Near Clip Distance: 0.01
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Views:
+    collapsed: false
+  Height: 900
+  Width: 1500
+  CameraRGB:
+    collapsed: false
+  CameraThermal:
+    collapsed: false

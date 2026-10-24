@@ -1,0 +1,423 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "bluerov2_heavy_alpha5"
+    doc = """Generated from Composed Stage of root layer /tmp/tmppwb4zeh1/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/usdex_rov_alpha/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/temp_rov_alpha/rov_alpha.usd
+
+
+Generated from Composed Stage of root layer /home/ferbin/hackachusetts/assets/usd/rov_alpha/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over "bluerov2_heavy_alpha5"
+{
+    over "Geometry"
+    {
+        over "base_link" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "NewtonArticulationRootAPI", "PhysicsMassAPI"]
+        )
+        {
+            bool newton:selfCollisionEnabled = 0
+            point3f physics:centerOfMass = (0, 0, 0)
+            float3 physics:diagonalInertia = (0.262, 0.378, 0.517)
+            float physics:mass = 11.5
+            quatf physics:principalAxes = (6.123234e-17, 0.70710677, 0.70710677, 0)
+
+            over "alpha_base_link" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+            )
+            {
+                float3 physics:diagonalInertia = (0.0001, 0.0001, 0.0001)
+                float physics:mass = 0.0001
+                quatf physics:principalAxes = (1, 0, 0, 0)
+
+                over "alpha_m3_inline_link" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                )
+                {
+                    point3f physics:centerOfMass = (-0.055, 0, 0)
+                    float3 physics:diagonalInertia = (0.0000682, 0.000673, 0.000673)
+                    float physics:mass = 0.341
+                    quatf physics:principalAxes = (1, 0, 0, 0)
+
+                    over "alpha_m2_1_1_link" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        point3f physics:centerOfMass = (0, 0, 0.0165)
+                        float3 physics:diagonalInertia = (0.000037, 0.000037, 0.0000388)
+                        float physics:mass = 0.194
+                        quatf physics:principalAxes = (1, 0, 0, 0)
+
+                        over "alpha_m2_link" (
+                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                        )
+                        {
+                            point3f physics:centerOfMass = (-0.02, 0, -0.0725)
+                            float3 physics:diagonalInertia = (0.0000858, 0.0008907, 0.0008907)
+                            float physics:mass = 0.429
+                            quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+
+                            over "alpha_m2_1_3_link" (
+                                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                            )
+                            {
+                                point3f physics:centerOfMass = (0.02, 0, 0.0165)
+                                float3 physics:diagonalInertia = (0.0000219, 0.0000219, 0.000023)
+                                float physics:mass = 0.115
+                                quatf physics:principalAxes = (1, 0, 0, 0)
+
+                                over "alpha_m1_link" (
+                                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                )
+                                {
+                                    point3f physics:centerOfMass = (0, 0, 0.05)
+                                    float3 physics:diagonalInertia = (0.00004, 0.0001867, 0.0001867)
+                                    float physics:mass = 0.2
+                                    quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+
+                                    over "alpha_rs1_124_link" (
+                                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                    )
+                                    {
+                                        float3 physics:diagonalInertia = (0.0001, 0.0001, 0.0001)
+                                        float physics:mass = 0.0001
+                                        quatf physics:principalAxes = (1, 0, 0, 0)
+
+                                        over "alpha_push_rod" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            float3 physics:diagonalInertia = (0.0001, 0.0001, 0.0001)
+                                            float physics:mass = 0.0001
+                                            quatf physics:principalAxes = (1, 0, 0, 0)
+                                        }
+
+                                        over "alpha_rs1_130_link" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            point3f physics:centerOfMass = (0, -0.008, 0.045)
+                                            float3 physics:diagonalInertia = (0.000004785, 0.000037785, 0.00004125)
+                                            float physics:mass = 0.055
+                                            quatf physics:principalAxes = (0.70710677, 0, 0.70710677, 0)
+
+                                            over "box" (
+                                                prepend apiSchemas = ["NewtonCollisionAPI"]
+                                            )
+                                            {
+                                            }
+                                        }
+
+                                        over "alpha_rs1_139_link" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            point3f physics:centerOfMass = (0, 0.008, 0.045)
+                                            float3 physics:diagonalInertia = (0.000004785, 0.000037785, 0.00004125)
+                                            float physics:mass = 0.055
+                                            quatf physics:principalAxes = (0.70710677, 0, 0.70710677, 0)
+
+                                            over "box" (
+                                                prepend apiSchemas = ["NewtonCollisionAPI"]
+                                            )
+                                            {
+                                            }
+                                        }
+
+                                        over "cylinder" (
+                                            prepend apiSchemas = ["NewtonCollisionAPI"]
+                                        )
+                                        {
+                                        }
+
+                                        over "alpha_tcp" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            float3 physics:diagonalInertia = (0.0001, 0.0001, 0.0001)
+                                            float physics:mass = 0.0001
+                                            quatf physics:principalAxes = (1, 0, 0, 0)
+                                        }
+                                    }
+
+                                    over "cylinder" (
+                                        prepend apiSchemas = ["NewtonCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "cylinder" (
+                                    prepend apiSchemas = ["NewtonCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+
+                            over "cylinder" (
+                                prepend apiSchemas = ["NewtonCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "cylinder_1" (
+                                prepend apiSchemas = ["NewtonCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "cylinder_2" (
+                                prepend apiSchemas = ["NewtonCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+
+                        over "cylinder" (
+                            prepend apiSchemas = ["NewtonCollisionAPI"]
+                        )
+                        {
+                        }
+                    }
+
+                    over "cylinder" (
+                        prepend apiSchemas = ["NewtonCollisionAPI"]
+                    )
+                    {
+                    }
+                }
+
+                over "cylinder" (
+                    prepend apiSchemas = ["NewtonCollisionAPI"]
+                )
+                {
+                }
+            }
+
+            over "box" (
+                prepend apiSchemas = ["NewtonCollisionAPI"]
+            )
+            {
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        def PhysicsRevoluteJoint "alpha_axis_e" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 9
+            uniform token physics:axis = "Z"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link>
+            point3f physics:localPos0 = (0, 0, 0.014)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 349.50424
+            custom float urdf:limit:effort = 9
+            custom float urdf:limit:velocity = 0.5
+        }
+
+        def PhysicsRevoluteJoint "alpha_axis_d" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 9
+            uniform token physics:axis = "Y"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link>
+            point3f physics:localPos0 = (-0.02, 0, 0.033)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -199.96227
+            float physics:upperLimit = 199.96227
+            custom float urdf:limit:effort = 9
+            custom float urdf:limit:velocity = 0.5
+        }
+
+        def PhysicsRevoluteJoint "alpha_axis_c" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 9
+            uniform token physics:axis = "Y"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link>
+            point3f physics:localPos0 = (-0.04, 0, -0.1453)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.0000013267949, 0, 0, 1)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 184.49242
+            custom float urdf:limit:effort = 9
+            custom float urdf:limit:velocity = 0.5
+        }
+
+        def PhysicsRevoluteJoint "alpha_axis_b" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 9
+            uniform token physics:axis = "Z"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link>
+            point3f physics:localPos0 = (0.02, -1.3877788e-17, 0.033)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0, 0.5000022, 0.86602414, 0)
+            quatf physics:localRot1 = (0, -1, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 184.49242
+            custom float urdf:limit:effort = 9
+            custom float urdf:limit:velocity = 0.5
+        }
+
+        def PhysicsPrismaticJoint "alpha_axis_a" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear", "PhysicsJointStateAPI:linear"]
+        )
+        {
+            float drive:linear:physics:maxForce = 10
+            uniform token physics:axis = "Z"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_push_rod>
+            point3f physics:localPos0 = (0, 0, 0.009)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 0.015
+            custom float urdf:limit:effort = 10
+            custom float urdf:limit:velocity = 10
+        }
+
+        def PhysicsRevoluteJoint "alpha_rs1_130_joint" (
+            prepend apiSchemas = ["NewtonMimicAPI", "PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 10
+            float newton:mimicCoef1 = 51
+            rel newton:mimicJoint = </bluerov2_heavy_alpha5/Physics/alpha_axis_a>
+            uniform token physics:axis = "X"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_rs1_130_link>
+            point3f physics:localPos0 = (0, 0.0155, 0.0069)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0, 0, -1, 0)
+            quatf physics:localRot1 = (0, 0, -1, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 28.64789
+            custom float urdf:limit:effort = 10
+            custom float urdf:limit:velocity = 10
+        }
+
+        def PhysicsRevoluteJoint "alpha_rs1_139_joint" (
+            prepend apiSchemas = ["NewtonMimicAPI", "PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            float drive:angular:physics:maxForce = 10
+            rel newton:mimicJoint = </bluerov2_heavy_alpha5/Physics/alpha_rs1_130_joint>
+            uniform token physics:axis = "X"
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_rs1_139_link>
+            point3f physics:localPos0 = (0, -0.0155, 0.0069)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 28.64789
+            custom float urdf:limit:effort = 10
+            custom float urdf:limit:velocity = 10
+        }
+
+        def PhysicsFixedJoint "root_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "alpha_base_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link>
+            point3f physics:localPos0 = (0.24, -0.099, 0.029)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "alpha_mount_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link>
+            point3f physics:localPos0 = (0.124, 0.004, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "alpha_tcp_base_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>
+            point3f physics:localPos0 = (0, 0, 0.09975)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "alpha_tcp_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_tcp>
+            point3f physics:localPos0 = (0, 0, 0.04)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (-0.70710677, -1.110223e-16, 0.70710677, -5.551115e-17)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+    }
+}
+
