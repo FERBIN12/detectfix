@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "name": "Run sim tests on save",
+  "description": "When a ROS publisher, thermal model or route file is saved, run the unit tests and report failures.",
+  "version": "1",
+  "when": { "type": "fileEdited", "patterns": ["sim/ros_pub.py", "sim/thermal.py", "sim/route_dam.py", "ai/bridge_triage.py"] },
+  "then": { "type": "askAgent", "prompt": "Run: source /opt/ros/jazzy/setup.bash && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ~/IsaacLab/env_isaaclab/bin/python -m pytest tests ai/test_bridge_triage.py -q. If anything fails, explain the failure and propose a fix limited to the edited file." }
+}

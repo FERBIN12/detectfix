@@ -141,15 +141,18 @@ def seg(k, dur):
             kk = min(ks, key=lambda q: abs(q - j)); pts = cj[kk]
             # column layout: labels stacked on one side, ordered by the height of their point -> no box overlaps, no crossings
             right = shot == "dronehero"; f_ = F(BC, 36); order = sorted(keys, key=lambda nm: pts[nm][1])
-            slots = {nm: 170 + 92 * q for q, nm in enumerate(order)}                  # y slots 170..446: above the feed and the caption
+            slots = {nm: 170 + 92 * q for q, nm in enumerate([o for o in order if o != "dvl"])}; slots["dvl"] = 0                  # y slots 170..446: above the feed and the caption
             for m_, name in enumerate(order):
                 x, y = pts[name]; grow = 1.0 if name not in new else min(max((i / FPS - 0.25 * keys.index(name)) / 0.6, 0), 1)
                 if grow <= 0: continue
                 tx = labels[name]; tw = d.textlength(tx, font=f_); ly = slots[name]
                 bx0 = 1290 if right else 90; bx1 = bx0 + tw + 28
                 ax = bx0 if right else bx1                                             # leader attaches to the near edge of the box
+                if name == "dvl":                                                      # under the hull: label straight below it, short vertical leader
+                    ly = y + 110; bx0 = x - (tw + 28) / 2; bx1 = bx0 + tw + 28; ax = x
                 d.ellipse([x - 9, y - 9, x + 9, y + 9], outline=AMBER + (255,), width=4)
-                g = min(grow * 1.6, 1.0); d.line([(x, y), (x + (ax - x) * g, y + (ly - 8 - y) * g)], fill=AMBER + (255,), width=3)
+                ty = ly - 36 if name == "dvl" else ly - 8
+                g = min(grow * 1.6, 1.0); d.line([(x, y), (x + (ax - x) * g, y + (ty - y) * g)], fill=AMBER + (255,), width=3)
                 if grow >= 0.6:
                     d.rounded_rectangle([bx0, ly - 36, bx1, ly + 14], 8, fill=(6, 12, 20, 225), outline=AMBER + (160,), width=2)
                     d.text((bx0 + 14, ly + 2), tx, font=f_, fill=WHITE + (255,), anchor="ls")

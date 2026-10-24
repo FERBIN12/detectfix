@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "name": "Check numbers against facts",
+  "description": "When narration or facts files change, check every number against video/FACTS2.md and the bag-derived stats.",
+  "version": "1",
+  "when": { "type": "fileEdited", "patterns": ["video/script*.json", "video/FACTS*.md"] },
+  "then": { "type": "askAgent", "prompt": "List every number in the edited file and the line of video/FACTS2.md (or SENSORS.md) that supports it. Flag any number without a source, and any team estimate not labelled as ours." }
+}
