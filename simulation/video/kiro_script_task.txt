@@ -1,0 +1,12 @@
+Work only inside ~/hackachusetts/video. Read FACTS.md. Write video/script.json: the narration for a 3-minute (about 170-180
+seconds) project video for judges at Hackachusetts, robotics track, challenge "Safer inspection of critical infrastructure".
+Format: a JSON list of [id, text] pairs, 20 to 24 lines, each line one or two short spoken sentences (6 to 22 words).
+Total 400 to 440 words. Use ONLY numbers and facts from FACTS.md; never invent any. Spell numbers the way a narrator says
+them is NOT needed: write digits, but write "4 of 9" as "four out of nine". Voice: a calm, confident documentary narrator,
+third person ("we built"), no hype words (no "revolutionary", "game-changing", "cutting-edge"). Structure with ids:
+h1-h2 hook (the dam crossing, 61,200 cars a day, what is rated Poor), p1-p3 the problem statewide (444 Poor, 778 need
+divers, scour is invisible from above), b1 what we built in one day, d1-d4 the drone (real ArduPilot, lidar, thermal
+labelled simulated, GPS dropping under the deck), r1-r4 the ROV (no GPS, DVL, sonar, 0.4 m over 60 m), t1-t3 working
+together (waterline flags -> ROV dives below, 4 of 4 in our run, one 3D model above and below the water line with the point
+counts), a1-a2 the AI triage over 5,252 bridges and its number 1, l1 honest limits in one sentence, c1-c2 close (what this
+means for the next inspection). Make sure the JSON is valid. Also print the word count.

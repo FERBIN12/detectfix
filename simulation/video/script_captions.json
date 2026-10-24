@@ -1,0 +1,94 @@
+[
+ [
+  "h1",
+  "Every day, 61,200 vehicles cross the Charles River Dam road bridge by the Museum of Science in Boston."
+ ],
+ [
+  "h2",
+  "Built in 1906 and rebuilt in 2011, its substructure and its channel protection are each rated four out of nine. That is Poor."
+ ],
+ [
+  "p1",
+  "In the federal bridge inventory, Massachusetts has 5,252 bridges, and 444 of them are rated Poor."
+ ],
+ [
+  "p2",
+  "Those Poor bridges carry about 10.1 million vehicle crossings every single day."
+ ],
+ [
+  "p3",
+  "2,600 bridges cross water. 778 need underwater inspection, done by divers today, and 123 are scour critical."
+ ],
+ [
+  "c1",
+  "Scour is the river eroding the bed around a bridge's foundations, and it is invisible from above the water."
+ ],
+ [
+  "b1",
+  "In one day, a team of three built a system that inspects a bridge above and below the water, in simulation."
+ ],
+ [
+  "d1",
+  "The drone is a Holybro X500, flown by real ArduPilot through a 38-item mission in AUTO with QGroundControl."
+ ],
+ [
+  "d2",
+  "It carries an Ouster 3D lidar, a gimbal RGB camera, floodlights, and a thermal camera, which is labelled simulated."
+ ],
+ [
+  "d3",
+  "Over open water it sees 12 satellites. Under the deck, its GPS drops to 7."
+ ],
+ [
+  "d4",
+  "So we cannot trust GPS where the inspection matters most, in the shadow directly beneath the bridge."
+ ],
+ [
+  "r1",
+  "Below the surface, the ROV is a BlueROV2 Heavy, flown by real ArduSub, with no GPS at all."
+ ],
+ [
+  "r2",
+  "It navigates on a Doppler velocity log fed to the autopilot's filter, like the real BlueOS setup."
+ ],
+ [
+  "r3",
+  "Its imaging sonar reaches 12 meters across a 130-degree field, beside a low-light camera built for turbid water."
+ ],
+ [
+  "r4",
+  "In our test, measured drift was about 0.4 meters after 60 meters of travel."
+ ],
+ [
+  "t1",
+  "The two robots work together. The drone flags defects at the water line as it flies."
+ ],
+ [
+  "t2",
+  "The ROV is then tasked automatically to dive and inspect the wall directly below each flag."
+ ],
+ [
+  "t3",
+  "In our recorded run the drone flagged 4 defects, and the ROV inspected all 4 of them."
+ ],
+ [
+  "t4",
+  "The result is one 3D model: 2.96 million lidar points above the water joined to 1.58 million sonar points below."
+ ],
+ [
+  "a1",
+  "An AI triage model, built with Kiro, scores all 5,252 Massachusetts bridges for underwater inspection risk from condition, scour, age, and traffic."
+ ],
+ [
+  "a2",
+  "Its number 1 is the North Washington Street bridge over the Charles, scour critical, a mile from our site."
+ ],
+ [
+  "l1",
+  "To be honest about limits: this runs in simulation, the thermal is simulated, and the defect flags come from ground truth."
+ ],
+ [
+  "c2",
+  "Above and below the waterline, in one pass, as one model. So the next inspection knows exactly where to send a diver, before anyone gets wet."
+ ]
+]

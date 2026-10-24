@@ -1,0 +1,170 @@
+{
+ "o1": {
+  "score": 0.706,
+  "dur": 2.92,
+  "hyp": "61,000 cars cross this bridge every day.",
+  "text": "Sixty-one thousand cars cross this bridge every day."
+ },
+ "o2": {
+  "score": 1.0,
+  "dur": 1.47,
+  "hyp": "Nobody sees what holds it up.",
+  "text": "Nobody sees what holds it up."
+ },
+ "o3": {
+  "score": 1.0,
+  "dur": 0.93,
+  "hyp": "It's down here.",
+  "text": "It's down here."
+ },
+ "p1": {
+  "score": 0.909,
+  "dur": 4.52,
+  "hyp": "To check it, a diver goes down and to water so murky they often work by touch.",
+  "text": "To check it, a diver goes down, into water so murky they often work by touch."
+ },
+ "p3": {
+  "score": 1.0,
+  "dur": 3.32,
+  "hyp": "Massachusetts has 778 bridges that need this.",
+  "text": "Massachusetts has 778 bridges that need this."
+ },
+ "p4": {
+  "score": 0.444,
+  "dur": 1.75,
+  "hyp": "MassDOT has 7 divers.",
+  "text": "Mass DOT has seven divers."
+ },
+ "p5": {
+  "score": 1.0,
+  "dur": 3.44,
+  "hyp": "And scour is worst in a flood, exactly when nobody can go in.",
+  "text": "And scour is worst in a flood. Exactly when nobody can go in."
+ },
+ "q1": {
+  "score": 1.0,
+  "dur": 3.53,
+  "hyp": "Federal rules keep the diver. Sonar can only supplement.",
+  "text": "Federal rules keep the diver. Sonar can only supplement."
+ },
+ "q2": {
+  "score": 1.0,
+  "dur": 5.17,
+  "hyp": "So we asked, what if a robot went first and divers only went where the map says?",
+  "text": "So we asked: what if a robot went first, and divers only went where the map says?"
+ },
+ "b1": {
+  "score": 1.0,
+  "dur": 3.72,
+  "hyp": "In one day, from scratch, we built it in NVIDIA Isaac Sim.",
+  "text": "In one day, from scratch, we built it in NVIDIA Isaac Sim."
+ },
+ "b2": {
+  "score": 0.944,
+  "dur": 5.64,
+  "hyp": "A digital twin of this crossing, flown by Ardupilat, the same flight code that runs on real hardware.",
+  "text": "A digital twin of this crossing, flown by Ardupilot, the same flight code that runs on real hardware."
+ },
+ "m1": {
+  "score": 0.703,
+  "dur": 5.85,
+  "hyp": "Above the water, a drone. 128-bean lidar turns the bridge into millions of 3D points.",
+  "text": "Above the water, a drone. A hundred-and-twenty-eight beam lidar turns the bridge into millions of three-D points."
+ },
+ "m2": {
+  "score": 0.784,
+  "dur": 8.76,
+  "hyp": "A gimbal camera and a thermal camera simulated here, hunt for cracks and damp stone, flood  lights for the underside, RTK GPS for position.",
+  "text": "A gimbal camera, and a thermal camera, simulated here, hunt for cracks and damp stone. Floodlights for the underside. R T K G P S for position."
+ },
+ "n1": {
+  "score": 0.842,
+  "dur": 3.56,
+  "hyp": "Below, a blue ROV2. There is no GPS underwater.",
+  "text": "Below, a Blue ROV two. There is no GPS underwater."
+ },
+ "n2": {
+  "score": 0.833,
+  "dur": 7.86,
+  "hyp": "So it navigates by sound.  A Doppler velocity log pings the riverbed and tracks its own speed, 40 centimeters of  drift after 60 meters.",
+  "text": "So it navigates by sound. A Doppler velocity log pings the riverbed and tracks its own speed. Forty centimetres of drift after sixty metres."
+ },
+ "n3": {
+  "score": 1.0,
+  "dur": 4.81,
+  "hyp": "A multibeam sonar sees where the camera sees only silt.  Eight thrusters hold it in the current.",
+  "text": "A multibeam sonar sees where the camera sees only silt. Eight thrusters hold it in the current."
+ },
+ "x1": {
+  "score": 1.0,
+  "dur": 2.21,
+  "hyp": "The mission. The drone takes the wall.",
+  "text": "The mission. The drone takes the wall."
+ },
+ "x2": {
+  "score": 0.714,
+  "dur": 2.48,
+  "hyp": "Under the deck, 12 satellites become 7.",
+  "text": "Under the deck, twelve satellites become seven."
+ },
+ "x3": {
+  "score": 1.0,
+  "dur": 3.6,
+  "hyp": "At the waterline, it spots damage, and hands the spot to the robot below.",
+  "text": "At the waterline it spots damage, and hands the spot to the robot below."
+ },
+ "x4": {
+  "score": 1.0,
+  "dur": 2.01,
+  "hyp": "The ROV dives straight to the mark.",
+  "text": "The ROV dives straight to the mark."
+ },
+ "x5": {
+  "score": 1.0,
+  "dur": 5.76,
+  "hyp": "Its sonar finds what nobody could see, a missing granite block, a scour pit, timber piles exposed.",
+  "text": "Its sonar finds what nobody could see. A missing granite block. A scour pit, timber piles exposed."
+ },
+ "x6": {
+  "score": 1.0,
+  "dur": 3.64,
+  "hyp": "Four flagged, four inspected, one model above the water and below.",
+  "text": "Four flagged. Four inspected. One model, above the water and below."
+ },
+ "k1": {
+  "score": 0.902,
+  "dur": 6.87,
+  "hyp": "Then the brain, built with Kiro. Mega's pipeline finds the defects,  cites everyone in the report, and waits for an engineer to sign off.",
+  "text": "Then the brain, built with Kiro. Megha's pipeline finds the defects, cites every one in the report, and waits for an engineer to sign off."
+ },
+ "k3": {
+  "score": 0.757,
+  "dur": 5.95,
+  "hyp": "And it ranks all 5,252 Massachusetts bridges, so the next dive goes where it counts.",
+  "text": "And it ranks all five thousand, two hundred and fifty-two Massachusetts bridges, so the next dive goes where it counts."
+ },
+ "v1": {
+  "score": 0.588,
+  "dur": 5.1,
+  "hyp": "RobotFirst is 20-30% cheaper per bridge by our estimate on a $16,000 kit.",
+  "text": "Robot first is twenty to thirty percent cheaper per bridge, by our estimate, on a sixteen-thousand-dollar kit."
+ },
+ "v3": {
+  "score": 0.903,
+  "dur": 5.77,
+  "hyp": "By 2028, every state must recode its scour data, and the pilot money already exists.",
+  "text": "By 2028, every state must re-code its scour data. And the pilot money already exists."
+ },
+ "l1": {
+  "score": 0.923,
+  "dur": 4.68,
+  "hyp": "Today, it's a simulation.  Next, a 10-bridge pilot checked against divers.",
+  "text": "Today, it's a simulation. Next, a ten-bridge pilot, checked against divers."
+ },
+ "c2": {
+  "score": 1.0,
+  "dur": 2.8,
+  "hyp": "Robot first. Divers only where the map says.",
+  "text": "Robot first. Divers only where the map says."
+ }
+}

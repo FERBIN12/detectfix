@@ -1,0 +1,14 @@
+# BlueROV2 Heavy navigating like the real thing: no GPS underwater, DVL (Water Linked A50 class) dead reckoning via
+# MAVLink VISION_POSITION_DELTA (what the BlueOS DVL extension sends), baro depth, compass yaw.
+GPS_TYPE 0
+VISO_TYPE 1
+EK3_SRC1_POSXY 6
+EK3_SRC1_VELXY 6
+EK3_SRC1_POSZ 1
+EK3_SRC1_VELZ 0
+EK3_SRC1_YAW 1
+WPNAV_SPEED 60
+WPNAV_ACCEL 60
+WPNAV_SPEED_DN 40
+WPNAV_SPEED_UP 40
+SYSID_THISMAV 2

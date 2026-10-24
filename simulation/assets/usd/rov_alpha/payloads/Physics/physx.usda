@@ -1,0 +1,80 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "bluerov2_heavy_alpha5"
+    doc = """Generated from Composed Stage of root layer /tmp/tmppwb4zeh1/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/usdex_rov_alpha/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/temp_rov_alpha/rov_alpha.usd
+
+
+Generated from Composed Stage of root layer /home/ferbin/hackachusetts/assets/usd/rov_alpha/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    subLayers = [
+        @./physics.usda@
+    ]
+    upAxis = "Z"
+)
+
+over "bluerov2_heavy_alpha5"
+{
+    over "Physics"
+    {
+        over "alpha_axis_e" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 28.64789
+        }
+
+        over "alpha_axis_d" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 28.64789
+        }
+
+        over "alpha_axis_c" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 28.64789
+        }
+
+        over "alpha_axis_b" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 28.64789
+        }
+
+        over "alpha_axis_a" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 572.9578
+        }
+
+        over "alpha_rs1_130_joint" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 572.9578
+        }
+
+        over "alpha_rs1_139_joint" (
+            prepend apiSchemas = ["PhysxJointAPI"]
+        )
+        {
+            float physxJoint:maxJointVelocity = 572.9578
+        }
+    }
+}
+

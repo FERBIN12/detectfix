@@ -1,0 +1,196 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "bluerov2_heavy_alpha5"
+    doc = """Generated from Composed Stage of root layer /tmp/tmppwb4zeh1/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/usdex_rov_alpha/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/temp_rov_alpha/rov_alpha.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over "bluerov2_heavy_alpha5" (
+    prepend apiSchemas = ["IsaacRobotAPI"]
+)
+{
+    prepend rel isaac:physics:robotJoints = [
+        </bluerov2_heavy_alpha5/Physics/root_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_base_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_mount_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_axis_e>,
+        </bluerov2_heavy_alpha5/Physics/alpha_axis_d>,
+        </bluerov2_heavy_alpha5/Physics/alpha_axis_c>,
+        </bluerov2_heavy_alpha5/Physics/alpha_axis_b>,
+        </bluerov2_heavy_alpha5/Physics/alpha_tcp_base_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_axis_a>,
+        </bluerov2_heavy_alpha5/Physics/alpha_rs1_130_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_rs1_139_joint>,
+        </bluerov2_heavy_alpha5/Physics/alpha_tcp_joint>,
+    ]
+    prepend rel isaac:physics:robotLinks = [
+        </bluerov2_heavy_alpha5/Geometry/base_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_push_rod>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_rs1_130_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_rs1_139_link>,
+        </bluerov2_heavy_alpha5/Geometry/base_link/alpha_base_link/alpha_m3_inline_link/alpha_m2_1_1_link/alpha_m2_link/alpha_m2_1_3_link/alpha_m1_link/alpha_rs1_124_link/alpha_tcp>,
+    ]
+    token isaac:robotType = "Default"
+
+    over "Geometry"
+    {
+        over "base_link" (
+            prepend apiSchemas = ["IsaacLinkAPI"]
+        )
+        {
+            over "alpha_base_link" (
+                prepend apiSchemas = ["IsaacLinkAPI"]
+            )
+            {
+                over "alpha_m3_inline_link" (
+                    prepend apiSchemas = ["IsaacLinkAPI"]
+                )
+                {
+                    over "alpha_m2_1_1_link" (
+                        prepend apiSchemas = ["IsaacLinkAPI"]
+                    )
+                    {
+                        over "alpha_m2_link" (
+                            prepend apiSchemas = ["IsaacLinkAPI"]
+                        )
+                        {
+                            over "alpha_m2_1_3_link" (
+                                prepend apiSchemas = ["IsaacLinkAPI"]
+                            )
+                            {
+                                over "alpha_m1_link" (
+                                    prepend apiSchemas = ["IsaacLinkAPI"]
+                                )
+                                {
+                                    over "alpha_rs1_124_link" (
+                                        prepend apiSchemas = ["IsaacLinkAPI"]
+                                    )
+                                    {
+                                        over "alpha_push_rod" (
+                                            prepend apiSchemas = ["IsaacLinkAPI"]
+                                        )
+                                        {
+                                        }
+
+                                        over "alpha_rs1_130_link" (
+                                            prepend apiSchemas = ["IsaacLinkAPI"]
+                                        )
+                                        {
+                                        }
+
+                                        over "alpha_rs1_139_link" (
+                                            prepend apiSchemas = ["IsaacLinkAPI"]
+                                        )
+                                        {
+                                        }
+
+                                        over "alpha_tcp" (
+                                            prepend apiSchemas = ["IsaacLinkAPI"]
+                                        )
+                                        {
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        over "root_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_base_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_mount_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_axis_e" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_axis_d" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_axis_c" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_axis_b" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_tcp_base_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_axis_a" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_rs1_130_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_rs1_139_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+
+        over "alpha_tcp_joint" (
+            prepend apiSchemas = ["IsaacJointAPI"]
+        )
+        {
+        }
+    }
+}
+

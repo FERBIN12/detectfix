@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<robot name="bluerov2_heavy_alpha5" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:include filename="alpha_5_urdf.xacro"/>
+  <xacro:include filename="jaws.xacro"/>
+  <!-- BlueROV2 Heavy hull: 11.5 kg, 0.457 x 0.575 x 0.254 m (Blue Robotics spec); visual mesh added in Isaac -->
+  <link name="base_link">
+    <inertial><mass value="11.5"/><origin xyz="0 0 0"/>
+      <inertia ixx="0.378" iyy="0.262" izz="0.517" ixy="0" ixz="0" iyz="0"/></inertial>
+    <collision><origin xyz="0 0 0"/><geometry><box size="0.457 0.575 0.254"/></geometry></collision>
+  </link>
+  <!-- mount pose from angler (MIT): manipulator_mount_joint xyz 0.24 -0.099 0.029 -->
+  <xacro:alpha_5_urdf parent="base_link" prefix="alpha_" joint_limits_file="/home/ferbin/hackachusetts/third_party/reach/reach_description/config/alpha_5/joint_limits.yaml">
+    <origin xyz="0.24 -0.099 0.029" rpy="0 0 0"/>
+  </xacro:alpha_5_urdf>
+  <xacro:standard_jaws parent="alpha_rs1_124_link" prefix="alpha_" mimic_joint="alpha_axis_a">
+  </xacro:standard_jaws>
+</robot>

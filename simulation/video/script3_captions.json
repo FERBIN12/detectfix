@@ -1,0 +1,114 @@
+[
+ [
+  "o1",
+  "Sixty-one thousand cars cross this bridge every day."
+ ],
+ [
+  "o2",
+  "Nobody sees what holds it up."
+ ],
+ [
+  "o3",
+  "It's down here."
+ ],
+ [
+  "p1",
+  "To check it, a diver goes down, into water so murky they often work by touch."
+ ],
+ [
+  "p3",
+  "Massachusetts has 778 bridges that need this."
+ ],
+ [
+  "p4",
+  "MassDOT has seven divers."
+ ],
+ [
+  "p5",
+  "And scour is worst in a flood. Exactly when nobody can go in."
+ ],
+ [
+  "q1",
+  "Federal rules keep the diver. Sonar can only supplement."
+ ],
+ [
+  "q2",
+  "So we asked: what if a robot went first, and divers only went where the map says?"
+ ],
+ [
+  "b1",
+  "In one day, from scratch, we built it in NVIDIA Isaac Sim."
+ ],
+ [
+  "b2",
+  "A digital twin of this crossing, flown by ArduPilot, the same flight code that runs on real hardware."
+ ],
+ [
+  "m1",
+  "Above the water, a drone. Its lidar fires 128 laser beams, and turns the bridge into millions of 3D points."
+ ],
+ [
+  "m2",
+  "A gimbal camera, and a thermal camera, simulated here, hunt for cracks and damp stone. Floodlights for the underside. RTK GPS for position."
+ ],
+ [
+  "n1",
+  "Below, a BlueROV2. There is no GPS underwater."
+ ],
+ [
+  "n2",
+  "So it navigates by sound. A Doppler velocity log pings the riverbed and tracks its own speed. Forty centimetres of drift after sixty metres."
+ ],
+ [
+  "n3",
+  "A multibeam sonar sees where the camera sees only silt. Eight thrusters hold it in the current."
+ ],
+ [
+  "x1",
+  "The mission. The drone takes the wall."
+ ],
+ [
+  "x2",
+  "Under the deck, twelve satellites become seven."
+ ],
+ [
+  "x3",
+  "At the waterline it spots damage, and hands the spot to the robot below."
+ ],
+ [
+  "x4",
+  "The ROV dives straight to the mark."
+ ],
+ [
+  "x5",
+  "Its sonar finds what nobody could see. A missing granite block. A scour pit, timber piles exposed."
+ ],
+ [
+  "x6",
+  "Four flagged. Four inspected. One model, above the water and below."
+ ],
+ [
+  "k1",
+  "Then the brain, built with Kiro. It finds the defects, cites every one in the report, and waits for an engineer to sign off."
+ ],
+ [
+  "k3",
+  "Every finding lands in one dashboard. The 3D map, the camera footage, the GPS track, and a report that Kiro writes itself."
+ ],
+ [
+  "v1",
+  "Robot first is twenty to thirty percent cheaper per bridge, by our estimate, on a sixteen-thousand-dollar kit."
+ ],
+ [
+  "v3",
+  "By 2028, every state must re-code its scour data. And the pilot money already exists."
+ ],
+ [
+  "l1",
+  "Today, it's a simulation. Next, a ten-bridge pilot, checked against divers."
+ ],
+ [
+  "c2",
+  "Robot first. Divers only where the map says."
+ ]
+]

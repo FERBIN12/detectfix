@@ -1,0 +1,288 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "bluerov2_heavy_alpha5"
+    doc = """Generated from Composed Stage of root layer /tmp/tmppwb4zeh1/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/usdex_rov_alpha/bluerov2_heavy_alpha5.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_rov_alpha_gql0ujrv/temp_rov_alpha/rov_alpha.usd
+
+
+Generated from Composed Stage of root layer /home/ferbin/hackachusetts/assets/usd/rov_alpha/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    subLayers = [
+        @./physics.usda@
+    ]
+    upAxis = "Z"
+)
+
+over "bluerov2_heavy_alpha5"
+{
+    over "Physics"
+    {
+        def MjcActuator "alpha_axis_e_actuator"
+        {
+            uniform double mjc:forceRange:max = 9
+            uniform double mjc:forceRange:min = -9
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_axis_e>
+        }
+
+        def MjcActuator "alpha_axis_d_actuator"
+        {
+            uniform double mjc:forceRange:max = 9
+            uniform double mjc:forceRange:min = -9
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_axis_d>
+        }
+
+        def MjcActuator "alpha_axis_c_actuator"
+        {
+            uniform double mjc:forceRange:max = 9
+            uniform double mjc:forceRange:min = -9
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_axis_c>
+        }
+
+        def MjcActuator "alpha_axis_b_actuator"
+        {
+            uniform double mjc:forceRange:max = 9
+            uniform double mjc:forceRange:min = -9
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_axis_b>
+        }
+
+        def MjcActuator "alpha_axis_a_actuator"
+        {
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_axis_a>
+        }
+
+        def MjcActuator "alpha_rs1_130_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_rs1_130_joint>
+        }
+
+        def MjcActuator "alpha_rs1_139_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            custom rel mjc:target
+            prepend rel mjc:target = </bluerov2_heavy_alpha5/Physics/alpha_rs1_139_joint>
+        }
+
+        over "root_joint"
+        {
+        }
+
+        over "alpha_base_joint"
+        {
+        }
+
+        over "alpha_mount_joint"
+        {
+        }
+
+        over "alpha_axis_e" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_axis_d" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_axis_c" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_axis_b" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_tcp_base_joint"
+        {
+        }
+
+        over "alpha_axis_a" (
+            delete apiSchemas = ["PhysicsDriveAPI:linear", "PhysicsJointStateAPI:linear"]
+        )
+        {
+        }
+
+        over "alpha_rs1_130_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_rs1_139_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "alpha_tcp_joint"
+        {
+        }
+    }
+
+    over "Geometry"
+    {
+        over "base_link"
+        {
+            over "alpha_base_link"
+            {
+                over "alpha_m3_inline_link"
+                {
+                    over "alpha_m2_1_1_link"
+                    {
+                        over "alpha_m2_link"
+                        {
+                            over "alpha_m2_1_3_link"
+                            {
+                                over "alpha_m1_link"
+                                {
+                                    over "alpha_rs1_124_link"
+                                    {
+                                        over "alpha_push_rod"
+                                        {
+                                            over "box"
+                                            {
+                                            }
+                                        }
+
+                                        over "alpha_rs1_130_link"
+                                        {
+                                            over "tn__RS1130_d9"
+                                            {
+                                            }
+
+                                            over "box"
+                                            {
+                                            }
+                                        }
+
+                                        over "alpha_rs1_139_link"
+                                        {
+                                            over "tn__RS1139_d9"
+                                            {
+                                            }
+
+                                            over "box"
+                                            {
+                                            }
+                                        }
+
+                                        over "alpha_tcp"
+                                        {
+                                        }
+
+                                        over "tn__RS1124_d9"
+                                        {
+                                        }
+
+                                        over "cylinder"
+                                        {
+                                        }
+                                    }
+
+                                    over "M1"
+                                    {
+                                    }
+
+                                    over "cylinder"
+                                    {
+                                    }
+                                }
+
+                                over "tn__M213_f64"
+                                {
+                                }
+
+                                over "cylinder"
+                                {
+                                }
+                            }
+
+                            over "M2"
+                            {
+                            }
+
+                            over "cylinder"
+                            {
+                            }
+
+                            over "cylinder_1"
+                            {
+                            }
+
+                            over "cylinder_2"
+                            {
+                            }
+                        }
+
+                        over "tn__M211_f64"
+                        {
+                        }
+
+                        over "cylinder"
+                        {
+                        }
+                    }
+
+                    over "tn__M3INLINE_ZC"
+                    {
+                    }
+
+                    over "cylinder"
+                    {
+                    }
+                }
+
+                over "tn__RS11010_rA"
+                {
+                }
+
+                over "cylinder"
+                {
+                }
+            }
+
+            over "box"
+            {
+            }
+        }
+    }
+
+    over "Materials"
+    {
+        over "transparent"
+        {
+        }
+    }
+
+    over "VisualMaterials"
+    {
+    }
+}
+

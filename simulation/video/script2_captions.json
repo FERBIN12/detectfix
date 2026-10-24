@@ -1,0 +1,142 @@
+[
+ [
+  "o1",
+  "A bridge in Boston carries 61,200 cars every day."
+ ],
+ [
+  "o2",
+  "It stands on foundations nobody can see."
+ ],
+ [
+  "p1",
+  "Across Massachusetts, 778 bridges need underwater inspection."
+ ],
+ [
+  "p2",
+  "123 of them are scour critical. Together they carry 1.6 million vehicles a day."
+ ],
+ [
+  "p3",
+  "To inspect them, MassDOT has 7 full-time divers."
+ ],
+ [
+  "p4",
+  "One dive-team day costs 6.8 to 10.8 thousand dollars per bridge."
+ ],
+ [
+  "p5",
+  "And scour matters most during floods, exactly when the current is too strong for anyone to dive."
+ ],
+ [
+  "i1",
+  "Federal guidance has long said sonar can only supplement divers, not replace them."
+ ],
+ [
+  "i2",
+  "A federal dam inspector told us this week: send an ROV down for a visual of the whole basin, then send divers for spot checks."
+ ],
+ [
+  "i3",
+  "So divers stay. The robot goes first. Divers only where the map says."
+ ],
+ [
+  "s1",
+  "To prove it, we built the whole simulation from scratch after the challenge dropped this morning, in NVIDIA Isaac Sim, a robotics simulator with real-time ray tracing and physics."
+ ],
+ [
+  "s2",
+  "We rebuilt the Charles River Dam crossing as a digital twin, from the federal record and photographs."
+ ],
+ [
+  "s3",
+  "Inside it run the real ArduPilot autopilots: one flies the drone through a 38-item mission, the other drives the ROV, all talking over ROS 2."
+ ],
+ [
+  "d1",
+  "A drone works above the water, carrying 3D lidar, a gimbal camera, simulated thermal, and floodlights."
+ ],
+ [
+  "d2",
+  "As it drops below the deck, its GPS fix falls from 12 satellites to 7."
+ ],
+ [
+  "d3",
+  "It maps the structure and flags defects right down to the water line."
+ ],
+ [
+  "r1",
+  "Below the surface, an ROV takes over, where there is no GPS at all."
+ ],
+ [
+  "r2",
+  "It navigates on a Doppler velocity log, drifting only about 0.4 meters over 60 meters."
+ ],
+ [
+  "r3",
+  "Multibeam sonar lets it see through dark water the drone can never reach."
+ ],
+ [
+  "t1",
+  "At the water line, the two robots hand off."
+ ],
+ [
+  "t2",
+  "The drone flagged 4 defects; the ROV dove and inspected all 4 in our recorded run."
+ ],
+ [
+  "t3",
+  "The result is one 3D model: 2.96 million lidar points above, 1.58 million sonar points below."
+ ],
+ [
+  "k1",
+  "The intelligence was built with Kiro, AWS's agentic AI coding environment."
+ ],
+ [
+  "k2",
+  "Megha used Kiro to build the whole detection pipeline and the inspector dashboard."
+ ],
+ [
+  "k3",
+  "It runs a YOLOv8 segmentation model on the imagery, retraces each hit into the lidar, and assigns severity by rules."
+ ],
+ [
+  "k4",
+  "A report agent must cite a detection for every claim, and a professional engineer signs off."
+ ],
+ [
+  "k5",
+  "With Kiro we also built a triage of all 5,252 Massachusetts bridges. In the 2022 data its number one was the North Washington Street bridge, a mile from our site, and Boston has since replaced it."
+ ],
+ [
+  "m1",
+  "Now the money. Today, every bridge gets a full dive-team day."
+ ],
+ [
+  "m2",
+  "Robot first, then a targeted dive, runs about 20 to 30 percent less, our estimate, which the pilot will measure."
+ ],
+ [
+  "m3",
+  "Our kit lists at 16,448 dollars, against sonar systems that cost 35 to 385 thousand for the sonar alone."
+ ],
+ [
+  "w1",
+  "The timing is now. By 15 March 2028, every state must re-code its bridge data, including scour."
+ ],
+ [
+  "w2",
+  "Pilot money already exists, through federal STIC and AID Demonstration programs."
+ ],
+ [
+  "w3",
+  "New Hampshire is already running an ROV study of its own."
+ ],
+ [
+  "c1",
+  "Next is a 10-bridge pilot, every robot map checked against a diver."
+ ],
+ [
+  "c2",
+  "Robot first. Divers only where the map says."
+ ]
+]
