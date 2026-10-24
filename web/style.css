@@ -200,21 +200,6 @@ td.mono { font-family: var(--mono); color: var(--text-2); }
 .status-ctl button[data-s=review].on    { background: var(--fair); }
 .status-ctl button[data-s=approved].on   { background: var(--good); }
 
-/* ---- 7. triage ---- */
-.triage-panel { margin-bottom: var(--gap); }
-.triage-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
-.tstat { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 13px; }
-.tstat .v { font-family: var(--mono); font-size: 22px; font-weight: 700; }
-.tstat .k { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.tstat.alert .v { color: var(--severe); }
-.tstat.warn .v { color: var(--poor); }
-#triage-table td { font-size: 12.5px; }
-.reasons { color: var(--text-2); font-size: 12px; }
-.pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 1px 7px;
-        border-radius: 6px; background: var(--surface-3); }
-.pill.bad { background: rgba(255,90,90,.16); color: #ff9a9a; }
-.pill.warn { background: rgba(255,157,66,.16); color: #ffc08a; }
-
 /* ---- 8. footer ---- */
 footer { display: flex; gap: 40px; flex-wrap: wrap; padding: 22px 28px 34px;
          border-top: 1px solid var(--border); margin-top: 8px; color: var(--text-2); font-size: 12.5px; }
@@ -227,5 +212,74 @@ footer { display: flex; gap: 40px; flex-wrap: wrap; padding: 22px 28px 34px;
   .kpi-row { grid-template-columns: repeat(5, 1fr); }
   .hero-grid { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
-  .triage-stats { grid-template-columns: repeat(3, 1fr); }
+  .charts-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* ---- 3b. GPS / Leaflet panel ---- */
+.gps-panel { display: flex; flex-direction: column; }
+.gps-map { flex: 1; min-height: 340px; border-radius: var(--radius-sm);
+           overflow: hidden; border: 1px solid var(--border); background: #0b141c; }
+/* keep the OSM tiles legible on the dark theme without going fully dark */
+.gps-map .leaflet-tile { filter: brightness(0.82) contrast(1.05) saturate(0.9); }
+.leaflet-container { background: #0b141c; font: 500 11px var(--font); }
+.leaflet-control-attribution { background: rgba(10,13,18,.7) !important; color: var(--muted) !important; }
+.leaflet-control-attribution a { color: var(--text-2) !important; }
+.gps-chart-wrap { margin-top: 12px; }
+.mini-head { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--text-2); margin-bottom: 6px; font-weight: 600; }
+.mini-head small { text-transform: none; letter-spacing: 0; }
+
+/* ---- 4. big stats grid ---- */
+.stats-panel { margin-bottom: var(--gap); }
+.stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.stat-col { background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 12px 14px; }
+.stat-col-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+                 color: var(--accent); font-weight: 700; margin-bottom: 9px;
+                 padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.stat-row { display: flex; align-items: baseline; justify-content: space-between;
+            gap: 10px; padding: 4px 0; font-size: 12.5px; }
+.stat-label { color: var(--text-2); }
+.stat-value { font-family: var(--mono); font-weight: 600; color: var(--text);
+              white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stat-unit { color: var(--muted); font-weight: 400; font-size: 11px; }
+
+/* ---- 5. telemetry charts ---- */
+.charts-panel { margin-bottom: var(--gap); }
+.charts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.chartbox { background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 11px 12px 8px; }
+.chartbox canvas { width: 100% !important; }
+
+/* ---- 7. Kiro report panel ---- */
+.kiro-panel { margin-bottom: var(--gap); }
+.kiro-tag { font-size: 10.5px; padding: 4px 11px; border-radius: 999px; font-weight: 700;
+            background: linear-gradient(135deg, rgba(124,140,255,.22), rgba(76,194,255,.18));
+            color: #cdd6ff; border: 1px solid rgba(124,140,255,.4); letter-spacing: .03em; }
+.kiro-report { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+               padding: 20px 24px; font-size: 13.5px; line-height: 1.65; color: var(--text);
+               max-height: 620px; overflow: auto; }
+.kiro-report h2 { font-size: 17px; text-transform: none; letter-spacing: 0; color: var(--text);
+                  margin: 18px 0 8px; font-weight: 700; }
+.kiro-report h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em;
+                  color: var(--accent); margin: 16px 0 6px; }
+.kiro-report h4 { font-size: 13px; color: var(--text-2); margin: 12px 0 4px; }
+.kiro-report p { margin: 7px 0; }
+.kiro-report ul { margin: 7px 0 7px 4px; padding-left: 18px; }
+.kiro-report li { margin: 3px 0; }
+.kiro-report code { font-family: var(--mono); font-size: 12px; background: var(--surface-3);
+                    padding: 1px 5px; border-radius: 5px; color: #bfe0ff; }
+.kiro-report strong { color: #fff; }
+.kiro-report .md-table { margin: 10px 0; font-size: 12.5px; }
+.kiro-report .md-table td { border-bottom: 1px solid var(--border); padding: 6px 10px; }
+.kiro-report .md-table tr:first-child td { color: var(--text-2); font-weight: 600; }
+.kiro-meta { margin-top: 10px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.muted { color: var(--muted); }
+
+/* ---- first-screen sizing: hero 3D taller, GPS map fills ---- */
+@media (min-width: 1501px) {
+  .hero-grid { grid-template-columns: 1fr 520px; }
+  .viewer { min-height: 600px; }
+  .gps-map { min-height: 430px; }
 }

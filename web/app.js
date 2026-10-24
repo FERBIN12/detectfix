@@ -11,12 +11,15 @@ const SEV_COLOR = { severe: 0xff5a5a, poor: 0xff9d42, fair: 0xffd24a, good: 0x4a
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString());
 
 async function main() {
-  let scene, kpis, coop, result, frames, triage;
+  let scene, kpis, coop, result, frames, gps, series, stats;
   try {
-    [scene, kpis, coop, result, frames, triage] = await Promise.all([
+    [scene, kpis, coop, result, frames, gps, series, stats] = await Promise.all([
       getJSON("/web/data/scene.json"), getJSON("/web/data/kpis.json"),
       getJSON("/web/data/coop.json"), getJSON("/web/data/result.json"),
-      getJSON("/web/data/frames.json"), getJSON("/web/data/triage.json"),
+      getJSON("/web/data/frames.json"),
+      getJSON("/web/data/gps.json").catch(() => null),
+      getJSON("/web/data/series.json").catch(() => null),
+      getJSON("/web/data/stats.json").catch(() => null),
     ]);
   } catch (e) {
     $("#mission-id").textContent = "no data — run export_web.py first";
@@ -24,12 +27,15 @@ async function main() {
   }
   renderHeader(scene, result);
   renderKPIs(kpis);
+  renderStats(stats);
   renderTimeline(coop);
   renderDetections(result.detections);
   renderReport(result.report);
   renderStatusControl();
-  renderTriage(triage);
   initFeeds(frames);
+  if (gps) initGPS(gps);
+  if (series) renderCharts(series);
+  loadKiroReport();
   init3D(scene);
 }
 
@@ -56,6 +62,216 @@ function renderKPIs(k) {
   $("#kpis").innerHTML = tiles.map((t) =>
     `<div class="kpi ${t.cls}"><div class="v">${t.v ?? "—"}${t.sub ? ` <small>${t.sub}</small>` : ""}</div><div class="k">${t.k}</div></div>`
   ).join("");
+}
+
+// ---- 4. big stats grid -----------------------------------------------------
+function renderStats(stats) {
+  const host = $("#stats-grid");
+  if (!host) return;
+  if (!stats || !stats.rows) { host.innerHTML = '<div class="muted">no stats exported</div>'; return; }
+  // group rows into columns by their "group" field, preserving order.
+  const groups = [];
+  const byName = {};
+  for (const r of stats.rows) {
+    if (!byName[r.group]) { byName[r.group] = { name: r.group, rows: [] }; groups.push(byName[r.group]); }
+    byName[r.group].rows.push(r);
+  }
+  host.innerHTML = groups.map((g) => `
+    <div class="stat-col">
+      <div class="stat-col-head">${g.name}</div>
+      ${g.rows.map((r) => `
+        <div class="stat-row">
+          <span class="stat-label">${r.label.replace(/^  /, "&nbsp;&nbsp;↳ ")}</span>
+          <span class="stat-value">${r.value == null ? "—" : fmt(r.value)}${r.unit ? `<span class="stat-unit"> ${r.unit}</span>` : ""}</span>
+        </div>`).join("")}
+    </div>`).join("");
+}
+
+// ---- 3b. GPS / Leaflet map -------------------------------------------------
+function initGPS(gps) {
+  const host = $("#gps-map");
+  if (!host || typeof L === "undefined") return;
+  const map = L.map(host, { zoomControl: true, attributionControl: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 20, attribution: "© OpenStreetMap contributors",
+  }).addTo(map);
+
+  const polys = [];
+  function track(pts, color, opts = {}) {
+    if (!pts || pts.length < 2) return;
+    const latlngs = pts.map((p) => [p[0], p[1]]);
+    const pl = L.polyline(latlngs, Object.assign({ color, weight: 3.5, opacity: 0.95 }, opts)).addTo(map);
+    polys.push(pl);
+    return pl;
+  }
+  track(gps.rov_truth_path, "#ffffff", { weight: 2, opacity: 0.7, dashArray: "4 5" });
+  track(gps.drone_path, "#4cc2ff", { weight: 4 });
+  track(gps.rov_path, "#ff9d42", { weight: 4 });
+
+  // start / end markers
+  const dot = (ll, color, title) => {
+    if (!ll) return;
+    L.circleMarker(ll, { radius: 6, color: "#0b0f14", weight: 2, fillColor: color, fillOpacity: 1 })
+      .addTo(map).bindTooltip(title, { direction: "top" });
+  };
+  dot(gps.drone_start, "#4cc2ff", "drone start");
+  dot(gps.drone_end, "#1d7fb8", "drone end");
+  dot(gps.rov_start, "#ffd24a", "ROV start");
+  dot(gps.rov_end, "#c9792a", "ROV end");
+
+  // defect pins
+  for (const d of gps.defects || []) {
+    const color = d.underwater ? "#d65cff" : "#ff5a5a";
+    L.circleMarker([d.lat, d.lon], {
+      radius: 5, color: "#0b0f14", weight: 1.5, fillColor: color, fillOpacity: 0.95,
+    }).addTo(map).bindTooltip(`${d.id} · ${d.type}${d.underwater ? " (underwater)" : ""} · sev ${d.severity}`,
+      { direction: "top" });
+  }
+
+  // frame on all drawn tracks, else the dam centre.
+  const group = L.featureGroup(polys);
+  if (polys.length) {
+    map.fitBounds(group.getBounds().pad(0.35));
+  } else {
+    map.setView(gps.center, 18);
+  }
+  // Leaflet needs a size invalidation once the panel has laid out.
+  setTimeout(() => map.invalidateSize(), 200);
+}
+
+// ---- 5. Chart.js time-series ----------------------------------------------
+let _chartDefaultsSet = false;
+function chartDefaults() {
+  if (_chartDefaultsSet || typeof Chart === "undefined") return;
+  Chart.defaults.color = "#8aa0b4";
+  Chart.defaults.font.family = "Barlow, system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+  _chartDefaultsSet = true;
+}
+
+function lineChart(id, series, color, opts = {}) {
+  const el = document.getElementById(id);
+  if (!el || typeof Chart === "undefined" || !series) return;
+  const data = series.map((p) => ({ x: p[0], y: p[1] }));
+  const annoUnder = opts.underDeck;
+  return new Chart(el, {
+    type: "line",
+    data: {
+      datasets: [{
+        data, borderColor: color, backgroundColor: color + "22",
+        borderWidth: 1.8, pointRadius: 0, tension: 0.25, fill: true,
+      }],
+    },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      parsing: false, normalized: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false,
+          callbacks: { title: (it) => `${it[0].parsed.x.toFixed(0)} s` } },
+        underDeckBand: annoUnder ? { interval: annoUnder } : undefined,
+      },
+      scales: {
+        x: { type: "linear", title: { display: false },
+             grid: { color: "#1b2733" }, ticks: { maxTicksLimit: 6, callback: (v) => `${v}s` } },
+        y: { grid: { color: "#1b2733" }, ticks: { maxTicksLimit: 5 },
+             suggestedMin: opts.min, suggestedMax: opts.max },
+      },
+    },
+    plugins: annoUnder ? [underDeckPlugin] : [],
+  });
+}
+
+// Chart.js plugin: shade the under-deck [t0, t1] interval on the x axis.
+const underDeckPlugin = {
+  id: "underDeckBand",
+  beforeDraw(chart, args, pluginOpts) {
+    const band = (chart.options.plugins && chart.options.plugins.underDeckBand) || pluginOpts;
+    const iv = band && band.interval;
+    if (!iv) return;
+    const { ctx, chartArea, scales } = chart;
+    const x0 = scales.x.getPixelForValue(iv[0]);
+    const x1 = scales.x.getPixelForValue(iv[1]);
+    ctx.save();
+    ctx.fillStyle = "rgba(76, 194, 255, 0.12)";
+    ctx.fillRect(Math.min(x0, x1), chartArea.top, Math.abs(x1 - x0), chartArea.bottom - chartArea.top);
+    ctx.strokeStyle = "rgba(76, 194, 255, 0.4)";
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x0, chartArea.top); ctx.lineTo(x0, chartArea.bottom);
+    ctx.moveTo(x1, chartArea.top); ctx.lineTo(x1, chartArea.bottom); ctx.stroke();
+    ctx.restore();
+  },
+};
+
+function renderCharts(series) {
+  chartDefaults();
+  const under = series.under_deck_interval || null;
+  // GNSS satellites (in the GPS panel) with the under-deck interval shaded
+  lineChart("chart-sats", series.drone_sats, "#7ee787", { min: 0, max: 14, underDeck: under });
+  // telemetry grid
+  lineChart("chart-alt", series.drone_alt, "#4cc2ff");
+  lineChart("chart-speed", series.drone_speed, "#9d7bff");
+  lineChart("chart-depth", series.rov_depth, "#2bb6d6");
+  lineChart("chart-dvl", series.rov_dvl_alt, "#ffb84a");
+  lineChart("chart-naverr", series.rov_nav_err, "#ff6b6b");
+}
+
+// ---- 7. Kiro-generated inspection report -----------------------------------
+async function loadKiroReport() {
+  const host = $("#kiro-report");
+  const meta = $("#kiro-meta");
+  if (!host) return;
+  let md;
+  try {
+    const r = await fetch("/web/data/kiro_report.md");
+    if (!r.ok) throw new Error(String(r.status));
+    md = await r.text();
+  } catch (e) {
+    return; // keep the "not generated yet" placeholder
+  }
+  host.innerHTML = miniMarkdown(md);
+  // timestamp from the companion facts JSON if present.
+  try {
+    const facts = await (await fetch("/web/data/kiro_report_facts.json")).json();
+    if (facts && facts.generated_at) {
+      meta.textContent = `generated by Kiro · ${facts.generated_at}`;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// Minimal, safe-ish Markdown -> HTML (headings, lists, bold, code, tables).
+function miniMarkdown(md) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const lines = md.replace(/\r/g, "").split("\n");
+  let html = "", inList = false, inTable = false;
+  const inline = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>");
+  const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+  const closeTable = () => { if (inTable) { html += "</tbody></table>"; inTable = false; } };
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (/^\s*\|.*\|\s*$/.test(ln)) {
+      const cells = ln.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      if (/^[\s:|-]+$/.test(ln)) continue; // separator row
+      if (!inTable) { closeList(); html += '<table class="md-table"><tbody>'; inTable = true; }
+      html += "<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>";
+      continue;
+    } else { closeTable(); }
+    let m;
+    if ((m = ln.match(/^(#{1,4})\s+(.*)$/))) {
+      closeList(); const lvl = m[1].length; html += `<h${lvl + 1}>${inline(m[2])}</h${lvl + 1}>`;
+    } else if ((m = ln.match(/^\s*[-*]\s+(.*)$/))) {
+      if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(m[1])}</li>`;
+    } else if (ln.trim() === "") {
+      closeList();
+    } else {
+      closeList(); html += `<p>${inline(ln)}</p>`;
+    }
+  }
+  closeList(); closeTable();
+  return html;
 }
 
 // ---- 5. cooperation timeline ----------------------------------------------
@@ -123,37 +339,6 @@ function renderStatusControl() {
       b.classList.add("on");
     };
   });
-}
-
-// ---- 7. statewide triage ---------------------------------------------------
-function renderTriage(t) {
-  const s = t.summary || {};
-  const stats = [
-    { v: fmt(s.total), k: "bridges statewide", cls: "" },
-    { v: fmt(s.over_water), k: "over water", cls: "" },
-    { v: fmt(s.poor), k: "in Poor condition", cls: "warn" },
-    { v: fmt(s.underwater_required), k: "need underwater inspection", cls: "warn" },
-    { v: fmt(s.scour_critical), k: "scour critical", cls: "alert" },
-  ];
-  $("#triage-stats").innerHTML = stats.map((x) =>
-    `<div class="tstat ${x.cls}"><div class="v">${x.v}</div><div class="k">${x.k}</div></div>`).join("");
-
-  const tb = $("#triage-table tbody");
-  tb.innerHTML = (t.top || []).map((b, i) => {
-    const uw = b.underwater || {};
-    const overdue = uw.overdue ? `<span class="pill bad">${uw.months_overdue} mo</span>` : `<span class="pill">on schedule</span>`;
-    const scour = b.scour_code != null && b.scour_code !== "" ? `<span class="pill ${(+b.scour_code <= 3) ? "bad" : "warn"}">${b.scour_code}</span>` : "—";
-    return `<tr>
-      <td class="mono">${i + 1}</td>
-      <td class="mono">${b.structure_number}</td>
-      <td>${(b.facility_carried || "").trim()} <small>/ ${(b.features_desc || "").trim()}</small></td>
-      <td class="mono">${b.score}</td>
-      <td class="mono">${b.lowest_condition ?? "—"}/9</td>
-      <td>${scour}</td>
-      <td>${overdue}</td>
-      <td class="reasons">${(b.reasons || []).join(" · ")}</td>
-    </tr>`;
-  }).join("");
 }
 
 // ---- 4. sensor feeds -------------------------------------------------------

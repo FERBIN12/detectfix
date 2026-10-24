@@ -14,7 +14,6 @@ browser dashboard needs, under ``web/data/``:
   result.json        the pipeline detection result (copied from --result)
   frames.json        per-stream sensor-frame manifest (rgb/thermal/rov_cam/sonar)
   <stream>/NNNN.jpg   ~60 evenly spaced stills extracted from each sensor stream
-  triage.json        statewide NBI underwater-risk ranking (top N + summary)
 
 Every number shown on the dashboard is derived here from the bag, the maps, the
 ground-truth defect list, the cooperation log and the pipeline result -- nothing
@@ -72,6 +71,42 @@ def _canal_axes():
     except Exception as exc:  # pragma: no cover - environment dependent
         print(f"  WARN could not import route_dam ({exc}); skipping canal crop")
         return None
+
+
+_ROUTE_DAM = None
+_ROUTE_DAM_TRIED = False
+
+
+def _route_dam():
+    """Import and cache the route_dam module (geo frame + under_deck test)."""
+    global _ROUTE_DAM, _ROUTE_DAM_TRIED
+    if _ROUTE_DAM_TRIED:
+        return _ROUTE_DAM
+    _ROUTE_DAM_TRIED = True
+    for cand in (Path.home() / "hackachusetts" / "sim",
+                 Path.home() / "hackachusetts_ext" / "hackachusetts" / "sim"):
+        if (cand / "route_dam.py").exists():
+            sys.path.insert(0, str(cand))
+            break
+    try:
+        import route_dam as p  # noqa: WPS433
+        _ROUTE_DAM = p
+    except Exception as exc:  # pragma: no cover
+        print(f"  WARN could not import route_dam for geo frame ({exc})")
+        _ROUTE_DAM = None
+    return _ROUTE_DAM
+
+
+def _to_latlon(geo, pts):
+    """Convert a list of world [x,y,z] to [[lat, lon], ...] via route_dam.to_geo."""
+    if geo is None:
+        return []
+    import numpy as np
+    out = []
+    for p in pts:
+        lat, lon, _z = geo.to_geo(np.asarray(p, float))
+        out.append([round(lat, 7), round(lon, 7)])
+    return out
 
 
 def crop_to_canal(points, axes):
@@ -174,8 +209,36 @@ def _polyline_length(pts):
     return total
 
 
+# status-string parsers (formats verified from the bag):
+#   /drone/status: "GNSS 12 sats HDOP 1.21 RTK FIXED   |  ArduCopter AUTO  ARMED  item 1/37"
+#   /rov/status:   "ArduSub GUIDED wall_E_submerged  depth 2.4 m  DVL alt 1.46 m lock True  nav err 0.09 m"
+_RE_SATS = re.compile(r"GNSS\s+(\d+)\s+sats")
+_RE_HDOP = re.compile(r"HDOP\s+([\d.]+)")
+_RE_ITEM = re.compile(r"item\s+(\d+)/(\d+)")
+_RE_DEPTH = re.compile(r"depth\s+([\-\d.]+)\s*m")
+_RE_DVLALT = re.compile(r"DVL\s+alt\s+([\-\d.]+)\s*m")
+_RE_LOCK = re.compile(r"lock\s+(True|False)")
+_RE_NAVERR = re.compile(r"nav\s+err\s+([\-\d.]+)\s*m")
+
+
+def _resample(series, n=200):
+    """Downsample a [t, v] list to ~n evenly spaced points (keeps endpoints)."""
+    if len(series) <= n:
+        return [[round(t, 1), round(v, 3)] for t, v in series]
+    step = len(series) / n
+    out = []
+    for k in range(n):
+        t, v = series[int(k * step)]
+        out.append([round(t, 1), round(v, 3)])
+    t, v = series[-1]
+    out.append([round(t, 1), round(v, 3)])
+    return out
+
+
 def decode_bag(bag_dir: Path):
-    """Single pass over the bag for paths, ROV accuracy and cooperation events."""
+    """Single pass over the bag for paths, ROV accuracy, cooperation, status and
+    the per-vehicle time-series (GNSS sats, altitude, speed, depth, DVL alt,
+    nav error) used by the dashboard charts and the big stats grid."""
     from mcap.reader import make_reader
     from mcap_ros2.decoder import DecoderFactory
 
@@ -191,16 +254,35 @@ def decode_bag(bag_dir: Path):
         return d(data)
 
     want = ["/path", "/rov/path", "/rov/truth/path",
-            "/rov/odom", "/rov/truth/odom",
+            "/odom", "/rov/odom", "/rov/truth/odom",
             "/coop/tasks", "/rov/status", "/drone/status"]
 
     drone_path = rov_path = rov_truth_path = []
     rov_odom_last = rov_truth_last = None
-    coop_events = []          # (t_rel, text) first time each marker text appears
+    coop_events = []          # first time each marker text appears
     seen_coop = set()
-    rov_status_samples = []   # (t_rel, text) a few status strings
+    rov_status_samples = []   # a few status strings (kept for the UI)
     drone_item_max = 0
     t0 = None
+    tend = None
+
+    # time-series collectors: [t_rel, value]
+    ts_alt, ts_speed = [], []        # drone altitude (z), ground speed
+    ts_sats, ts_hdop = [], []        # drone GNSS satellites / HDOP
+    ts_depth, ts_dvlalt = [], []     # ROV depth below water, DVL altitude above bed
+    ts_naverr = []                   # ROV |DVL - truth| horizontal+vertical error
+    # for drone speed and mission start/end of the under-deck shaded interval
+    drone_odom_prev = None           # (t, [x,y,z])
+    # ROV paired odom samples for a dense nav-error series
+    rov_odom_buf = {}                # t_round -> est position
+    rov_truth_buf = {}               # t_round -> truth position
+    dvl_lock_true = 0
+    dvl_lock_total = 0
+    under_deck_t = []                # drone timestamps while under the deck
+    sats_seen = []
+
+    # import the geo helper / under_deck test from route_dam
+    geo = _route_dam()
 
     with open(mcap_path, "rb") as f:
         reader = make_reader(f)
@@ -209,6 +291,7 @@ def decode_bag(bag_dir: Path):
             if t0 is None:
                 t0 = t
             tr = t - t0
+            tend = t
             topic = ch.topic
             if topic == "/path":
                 drone_path = _path_points(decode(ch, sch, m.data))
@@ -216,12 +299,27 @@ def decode_bag(bag_dir: Path):
                 rov_path = _path_points(decode(ch, sch, m.data))
             elif topic == "/rov/truth/path":
                 rov_truth_path = _path_points(decode(ch, sch, m.data))
+            elif topic == "/odom":
+                od = decode(ch, sch, m.data)
+                p = od.pose.pose.position
+                pos = [p.x, p.y, p.z]
+                ts_alt.append([tr, p.z])
+                # ground speed from the twist (ArduCopter velocity estimate)
+                v = od.twist.twist.linear
+                sp = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+                ts_speed.append([tr, sp])
+                drone_odom_prev = (tr, pos)
+                if geo and geo.under_deck(__import__("numpy").asarray(pos, float)):
+                    under_deck_t.append(tr)
             elif topic == "/rov/odom":
                 p = decode(ch, sch, m.data).pose.pose.position
                 rov_odom_last = (tr, [p.x, p.y, p.z])
+                rov_odom_buf[round(tr, 1)] = [p.x, p.y, p.z]
+                ts_depth.append([tr, -p.z])  # depth below water line (z=0, Z up)
             elif topic == "/rov/truth/odom":
                 p = decode(ch, sch, m.data).pose.pose.position
                 rov_truth_last = (tr, [p.x, p.y, p.z])
+                rov_truth_buf[round(tr, 1)] = [p.x, p.y, p.z]
             elif topic == "/coop/tasks":
                 for mk in decode(ch, sch, m.data).markers:
                     txt = (mk.text or "").strip()
@@ -229,22 +327,67 @@ def decode_bag(bag_dir: Path):
                         seen_coop.add(txt)
                         coop_events.append({"t": round(tr, 1), "text": txt})
             elif topic == "/rov/status":
+                txt = decode(ch, sch, m.data).data
                 if len(rov_status_samples) < 4:
-                    rov_status_samples.append({"t": round(tr, 1),
-                                               "text": decode(ch, sch, m.data).data})
+                    rov_status_samples.append({"t": round(tr, 1), "text": txt})
+                md = _RE_DVLALT.search(txt)
+                if md:
+                    ts_dvlalt.append([tr, float(md.group(1))])
+                ml = _RE_LOCK.search(txt)
+                if ml:
+                    dvl_lock_total += 1
+                    if ml.group(1) == "True":
+                        dvl_lock_true += 1
             elif topic == "/drone/status":
                 txt = decode(ch, sch, m.data).data
-                mobj = re.search(r"item\s+(\d+)/(\d+)", txt)
+                mobj = _RE_ITEM.search(txt)
                 if mobj:
                     drone_item_max = max(drone_item_max, int(mobj.group(1)))
+                ms = _RE_SATS.search(txt)
+                if ms:
+                    nsat = int(ms.group(1))
+                    ts_sats.append([tr, nsat])
+                    sats_seen.append(nsat)
+                mh = _RE_HDOP.search(txt)
+                if mh:
+                    ts_hdop.append([tr, float(mh.group(1))])
 
-    span = round((m.log_time / 1e9) - t0, 1) if t0 is not None else 0.0
+    span = round((tend - t0), 1) if t0 is not None else 0.0
 
-    # ROV navigation accuracy: DVL dead-reckoned estimate vs. ground truth.
+    # dense ROV nav-error series: pair est & truth on matched rounded times.
+    for tk in sorted(set(rov_odom_buf) & set(rov_truth_buf)):
+        ts_naverr.append([tk, math.dist(rov_odom_buf[tk], rov_truth_buf[tk])])
+    ts_naverr.sort()
+
+    # final + max nav error.
     nav_err = None
     if rov_odom_last and rov_truth_last:
         nav_err = round(math.dist(rov_odom_last[1], rov_truth_last[1]), 3)
+    nav_err_max = round(max((v for _, v in ts_naverr), default=0.0), 3) if ts_naverr else None
+
     rov_distance = round(_polyline_length(rov_truth_path), 1) if rov_truth_path else None
+    drone_distance = round(_polyline_length(drone_path), 1) if drone_path else None
+
+    # drone flight time = first to last odom sample.
+    flight_time = round(ts_alt[-1][0] - ts_alt[0][0], 1) if len(ts_alt) >= 2 else None
+    # ROV dive time = first to last rov odom sample.
+    dive_time = None
+    if ts_depth:
+        dive_time = round(ts_depth[-1][0] - ts_depth[0][0], 1)
+
+    max_alt = round(max((v for _, v in ts_alt), default=0.0), 2) if ts_alt else None
+    # exclude the first few near-zero speed samples; report moving mean + max.
+    sp_vals = [v for _, v in ts_speed]
+    mean_speed = round(sum(sp_vals) / len(sp_vals), 2) if sp_vals else None
+    max_speed = round(max(sp_vals), 2) if sp_vals else None
+    max_depth = round(max((v for _, v in ts_depth), default=0.0), 2) if ts_depth else None
+    # time under the deck = count of distinct ~1 s buckets the drone was under it
+    time_under_deck = round(len({round(x) for x in under_deck_t}), 1) if under_deck_t else 0.0
+    under_deck_interval = ([round(min(under_deck_t), 1), round(max(under_deck_t), 1)]
+                           if under_deck_t else None)
+    min_sats = min(sats_seen) if sats_seen else None
+    max_sats = max(sats_seen) if sats_seen else None
+    dvl_lock_pct = round(100.0 * dvl_lock_true / dvl_lock_total, 1) if dvl_lock_total else None
 
     return {
         "span_s": span,
@@ -252,10 +395,34 @@ def decode_bag(bag_dir: Path):
         "rov_path": rov_path,
         "rov_truth_path": rov_truth_path,
         "nav_err_m": nav_err,
+        "nav_err_max_m": nav_err_max,
         "rov_distance_m": rov_distance,
+        "drone_distance_m": drone_distance,
         "coop_events": coop_events,
         "rov_status": rov_status_samples,
         "drone_waypoint_max": drone_item_max,
+        # stats grid extras
+        "flight_time_s": flight_time,
+        "dive_time_s": dive_time,
+        "max_alt_m": max_alt,
+        "mean_speed_ms": mean_speed,
+        "max_speed_ms": max_speed,
+        "max_depth_m": max_depth,
+        "time_under_deck_s": time_under_deck,
+        "under_deck_interval": under_deck_interval,
+        "min_sats": min_sats,
+        "max_sats": max_sats,
+        "dvl_lock_pct": dvl_lock_pct,
+        # time-series (resampled) for the charts
+        "series": {
+            "drone_alt": _resample(ts_alt),
+            "drone_speed": _resample(ts_speed),
+            "drone_sats": _resample(ts_sats),
+            "drone_hdop": _resample(ts_hdop),
+            "rov_depth": _resample(ts_depth),
+            "rov_dvl_alt": _resample(ts_dvlalt),
+            "rov_nav_err": _resample(ts_naverr),
+        },
     }
 
 
@@ -419,41 +586,93 @@ def build_kpis(result, defects, dive, bag, cloud_meta):
 
 
 # --------------------------------------------------------------------------- #
-# triage
+# bag metadata (message / topic counts) + big stats grid
 # --------------------------------------------------------------------------- #
-def export_triage(web_data, triage_py, triage_venv, top_n):
-    """Run the statewide NBI triage and keep the top N + summary counts."""
-    import subprocess
-    import tempfile
-    if not Path(triage_py).exists():
-        print(f"  WARN triage script not found at {triage_py}; skipping")
-        return
-    tmp = Path(tempfile.gettempdir()) / "detectfix_triage.json"
-    proc = subprocess.run([triage_venv, triage_py, "--json", str(tmp), "--summary"],
-                          capture_output=True, text=True)
-    if proc.returncode != 0:
-        print(f"  WARN triage failed: {proc.stderr[:200]}")
-        return
-    ranking = json.loads(tmp.read_text(encoding="utf-8"))
-    summary = _parse_triage_summary(proc.stdout)
-    out = {"summary": summary, "top": ranking[:top_n]}
-    (web_data / "triage.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
-    print(f"  triage: {summary.get('total','?')} bridges, top {len(out['top'])} kept")
+def parse_bag_metadata(bag_dir: Path):
+    """Read total messages / topics / per-topic counts from metadata.yaml.
+
+    Avoids a PyYAML dependency: the file is simple enough to scan with regexes.
+    """
+    meta = bag_dir / "metadata.yaml"
+    info = {"total_messages": None, "topic_count": None, "topics": {}, "duration_s": None}
+    if not meta.exists():
+        return info
+    text = meta.read_text(encoding="utf-8", errors="replace")
+    mm = re.search(r"message_count:\s*(\d+)", text)
+    if mm:
+        info["total_messages"] = int(mm.group(1))
+    md = re.search(r"duration:\s*\n\s*nanoseconds:\s*(\d+)", text)
+    if md:
+        info["duration_s"] = round(int(md.group(1)) / 1e9, 1)
+    # pair each topic name with the following message_count.
+    names = re.findall(r"name:\s*(/\S+)", text)
+    counts = re.findall(r"^\s*message_count:\s*(\d+)\s*$", text, re.MULTILINE)
+    # the first message_count is the bag total; the rest are per-topic in order.
+    per_topic = counts[1:] if len(counts) > len(names) else counts
+    for name, c in zip(names, per_topic):
+        info["topics"][name] = int(c)
+    info["topic_count"] = len(info["topics"])
+    return info
 
 
-def _parse_triage_summary(text):
-    """Pull the headline counts out of the --summary stdout block."""
-    def grab(pat):
-        m = re.search(pat, text)
-        return int(m.group(1).replace(",", "")) if m else None
-    return {
-        "total": grab(r"Bridges total\s*:\s*([\d,]+)"),
-        "over_water": grab(r"Over water.*?:\s*([\d,]+)"),
-        "scour_critical": grab(r"Scour critical.*?:\s*([\d,]+)"),
-        "poor": grab(r"Poor condition \(BRIDGE_CONDITION[^:]*:\s*([\d,]+)"),
-        "underwater_required": grab(r"Underwater inspection required\s*:\s*([\d,]+)"),
-        "underwater_overdue": grab(r"\.\.\.overdue\s*:\s*([\d,]+)"),
-    }
+def build_stats(bag, meta, frames_manifest, cloud_meta, defects, dive, result):
+    """The big stats grid -- every value measured from the bag / maps / result.
+
+    Returns a list of {group, label, value, unit} rows the UI renders verbatim.
+    """
+    above = sum(1 for d in defects if not d["underwater"])
+    below = sum(1 for d in defects if d["underwater"])
+    fr = frames_manifest or {}
+
+    def fcount(key):
+        return (fr.get(key) or {}).get("count")
+
+    rows = [
+        # drone / above water
+        ("Drone (above water)", "Flight time", bag.get("flight_time_s"), "s"),
+        ("Drone (above water)", "Distance flown", bag.get("drone_distance_m"), "m"),
+        ("Drone (above water)", "Max altitude", bag.get("max_alt_m"), "m"),
+        ("Drone (above water)", "Mean speed", bag.get("mean_speed_ms"), "m/s"),
+        ("Drone (above water)", "Max speed", bag.get("max_speed_ms"), "m/s"),
+        ("Drone (above water)", "Time under the deck", bag.get("time_under_deck_s"), "s"),
+        ("Drone (above water)", "GNSS satellites", _minmax(bag.get("min_sats"), bag.get("max_sats")), ""),
+        ("Drone (above water)", "Waypoints flown", bag.get("drone_waypoint_max"), ""),
+        # ROV / below water
+        ("BlueROV2 (below water)", "Dive time", bag.get("dive_time_s"), "s"),
+        ("BlueROV2 (below water)", "Distance travelled", bag.get("rov_distance_m"), "m"),
+        ("BlueROV2 (below water)", "Max depth", bag.get("max_depth_m"), "m"),
+        ("BlueROV2 (below water)", "Final nav error", bag.get("nav_err_m"), "m"),
+        ("BlueROV2 (below water)", "Max nav error", bag.get("nav_err_max_m"), "m"),
+        ("BlueROV2 (below water)", "DVL bottom lock", bag.get("dvl_lock_pct"), "%"),
+        # maps / sensing
+        ("Mapping & sensing", "LiDAR points (above)", cloud_meta.get("lidar", {}).get("source_count"), ""),
+        ("Mapping & sensing", "Sonar points (below)", cloud_meta.get("sonar", {}).get("source_count"), ""),
+        ("Mapping & sensing", "LiDAR map voxels", cloud_meta.get("lidar", {}).get("count"), ""),
+        ("Mapping & sensing", "Sonar map voxels", cloud_meta.get("sonar", {}).get("count"), ""),
+        ("Mapping & sensing", "Drone RGB frames", fcount("rgb"), ""),
+        ("Mapping & sensing", "Thermal frames", fcount("thermal"), ""),
+        ("Mapping & sensing", "ROV camera frames", fcount("rov_cam"), ""),
+        ("Mapping & sensing", "Sonar frames", fcount("sonar"), ""),
+        # findings / cooperation
+        ("Findings & cooperation", "Model detections", len(result.get("detections", [])), ""),
+        ("Findings & cooperation", "Ground-truth defects", len(defects), ""),
+        ("Findings & cooperation", "  above water", above, ""),
+        ("Findings & cooperation", "  below water", below, ""),
+        ("Findings & cooperation", "Drone→ROV tasks", len(dive.get("done", [])), ""),
+        # bag
+        ("Recorded bag", "Mission duration", bag.get("span_s"), "s"),
+        ("Recorded bag", "Total ROS messages", meta.get("total_messages"), ""),
+        ("Recorded bag", "Topics recorded", meta.get("topic_count"), ""),
+    ]
+    return [{"group": g, "label": l, "value": v, "unit": u} for (g, l, v, u) in rows]
+
+
+def _minmax(a, b):
+    if a is None and b is None:
+        return None
+    if a == b:
+        return a
+    return f"{a}–{b}"
 
 
 # --------------------------------------------------------------------------- #
@@ -468,12 +687,6 @@ def main() -> int:
                     help="cap per cloud after voxel downsample")
     ap.add_argument("--frames", action="store_true",
                     help="(re-)extract sensor stills (slow; skips if omitted and dirs exist)")
-    ap.add_argument("--no-triage", action="store_true")
-    ap.add_argument("--triage-py",
-                    default=str(Path.home() / "hackachusetts/ai/bridge_triage.py"))
-    ap.add_argument("--triage-venv",
-                    default=str(Path.home() / "hackachusetts/.venv/bin/python"))
-    ap.add_argument("--triage-top", type=int, default=10)
     args = ap.parse_args()
 
     bag_dir = Path(args.bag)
@@ -533,18 +746,72 @@ def main() -> int:
             "rov_status": bag["rov_status"], "log": dive}
     (web_data / "coop.json").write_text(json.dumps(coop, indent=1), encoding="utf-8")
 
-    # 7. sensor frames
+    # 7. GPS / geo bundle (Leaflet): paths + defects converted to lat/lon.
+    geo = _route_dam()
+    gps = None
+    if geo is not None:
+        import numpy as np
+        et = getattr(geo, "_ET", (42.368614, -71.071864))
+        center = [round(float(geo.LAT0), 7), round(float(geo.LON0), 7)]
+        drone_ll = _to_latlon(geo, bag["drone_path"])
+        rov_ll = _to_latlon(geo, bag["rov_path"])
+        rov_truth_ll = _to_latlon(geo, bag["rov_truth_path"])
+        defect_ll = []
+        for d in defects:
+            lat, lon, _z = geo.to_geo(np.asarray(d["pos"], float))
+            defect_ll.append({"id": d["id"], "type": d["type"], "severity": d["severity"],
+                              "underwater": d["underwater"],
+                              "lat": round(lat, 7), "lon": round(lon, 7)})
+        gps = {
+            "center": center,
+            "craigie": center,
+            "dam_bridge": [round(float(et[0]), 7), round(float(et[1]), 7)],
+            "drone_path": drone_ll,
+            "rov_path": rov_ll,
+            "rov_truth_path": rov_truth_ll,
+            "defects": defect_ll,
+            "drone_start": drone_ll[0] if drone_ll else None,
+            "drone_end": drone_ll[-1] if drone_ll else None,
+            "rov_start": rov_ll[0] if rov_ll else None,
+            "rov_end": rov_ll[-1] if rov_ll else None,
+        }
+        (web_data / "gps.json").write_text(json.dumps(gps, indent=1), encoding="utf-8")
+        print(f"gps: {len(drone_ll)} drone + {len(rov_ll)} ROV points, "
+              f"{len(defect_ll)} defect pins (centre {center})")
+    else:
+        print("gps: skipped (route_dam unavailable)")
+
+    # 8. time-series for the charts.
+    series = dict(bag["series"])
+    series["under_deck_interval"] = bag["under_deck_interval"]
+    series["span_s"] = bag["span_s"]
+    (web_data / "series.json").write_text(json.dumps(series, indent=1), encoding="utf-8")
+    print("series: " + ", ".join(f"{k}×{len(v)}" for k, v in bag["series"].items()))
+
+    # 9. sensor frames (before stats so the manifest feeds the stats grid).
     need_frames = args.frames or not (web_data / "frames.json").exists()
     if need_frames:
         print("frames:")
-        extract_frames(bag_dir, web_data)
+        frames_manifest = extract_frames(bag_dir, web_data)
     else:
         print("frames: kept existing (pass --frames to re-extract)")
+        try:
+            frames_manifest = json.loads((web_data / "frames.json").read_text(encoding="utf-8"))
+        except Exception:
+            frames_manifest = {}
 
-    # 8. triage
-    if not args.no_triage:
-        print("triage:")
-        export_triage(web_data, args.triage_py, args.triage_venv, args.triage_top)
+    # 10. big stats grid (measured from bag + maps + frames + result).
+    meta = parse_bag_metadata(bag_dir)
+    stats = build_stats(bag, meta, frames_manifest, cloud_meta, defects, dive, result)
+    (web_data / "stats.json").write_text(
+        json.dumps({"mission_id": scene["mission_id"], "rows": stats}, indent=1),
+        encoding="utf-8")
+    print(f"stats: {len(stats)} rows · {meta.get('total_messages')} msgs · "
+          f"{meta.get('topic_count')} topics")
+
+    # 11. triage removed — statewide bridge ranking is no longer part of the
+    #     dashboard. Plain NBI condition facts for the report come from
+    #     scripts/kiro_report.py instead.
 
     print(f"done -> {web_data}")
     return 0
