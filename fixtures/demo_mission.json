@@ -1,0 +1,85 @@
+{
+  "_comment": "Offline demo bag: a JSON sidecar standing in for a decoded rosbag .mcap. Each capture is one recorded message (rgb/lidar/sonar/rov_camera). Mock detectors replay the detections carried in each capture's payload; the LiDAR stage measures geometry from the recorded point lists. Coordinates are metres in the bridge frame.",
+  "captures": [
+    {
+      "kind": "rgb",
+      "timestamp_utc": 1000.000,
+      "capture_id": "drone-rgb-0042",
+      "pose": {"x": 12.0, "y": 3.0, "z": 8.0, "yaw": 1.57},
+      "payload": {
+        "detections": [
+          {"class": "spall", "confidence": 0.88},
+          {"class": "exposed_rebar", "confidence": 0.71}
+        ]
+      }
+    },
+    {
+      "kind": "lidar",
+      "timestamp_utc": 1000.050,
+      "capture_id": "drone-lidar-0042",
+      "pose": {"x": 12.0, "y": 3.0, "z": 8.0, "yaw": 1.57},
+      "payload": {
+        "points": [
+          [0.00, 0.00, 0.000], [0.01, 0.00, 0.001], [0.02, 0.00, 0.000],
+          [0.00, 0.01, 0.000], [0.01, 0.01, -0.041], [0.02, 0.01, 0.001],
+          [0.00, 0.02, 0.000], [0.01, 0.02, -0.038], [0.02, 0.02, 0.000],
+          [0.03, 0.00, 0.000], [0.03, 0.01, 0.001], [0.03, 0.02, 0.000]
+        ]
+      }
+    },
+    {
+      "kind": "rgb",
+      "timestamp_utc": 1005.000,
+      "capture_id": "drone-rgb-0051",
+      "pose": {"x": 30.0, "y": 3.0, "z": 8.0, "yaw": 1.57},
+      "payload": {
+        "detections": [
+          {"class": "corrosion_stain", "confidence": 0.63}
+        ]
+      }
+    },
+    {
+      "kind": "lidar",
+      "timestamp_utc": 1005.040,
+      "capture_id": "drone-lidar-0051",
+      "pose": {"x": 30.0, "y": 3.0, "z": 8.0, "yaw": 1.57},
+      "payload": {
+        "points": [
+          [0.00, 0.00, 0.000], [0.05, 0.00, 0.000], [0.10, 0.00, 0.001],
+          [0.00, 0.05, 0.000], [0.05, 0.05, 0.002], [0.10, 0.05, 0.000],
+          [0.00, 0.10, 0.001], [0.05, 0.10, 0.000], [0.10, 0.10, 0.000]
+        ]
+      }
+    },
+    {
+      "kind": "sonar",
+      "timestamp_utc": 2000.000,
+      "capture_id": "rov-sonar-0007",
+      "pose": {"x": 12.0, "y": 3.0, "z": -4.0},
+      "payload": {
+        "detections": [
+          {"class": "scour", "confidence": 0.82},
+          {"class": "section_loss", "confidence": 0.55}
+        ]
+      }
+    },
+    {
+      "kind": "rov_camera",
+      "timestamp_utc": 2000.080,
+      "capture_id": "rov-cam-0007",
+      "pose": {"x": 12.1, "y": 3.0, "z": -4.0},
+      "payload": {"visibility": 0.7}
+    },
+    {
+      "kind": "sonar",
+      "timestamp_utc": 2010.000,
+      "capture_id": "rov-sonar-0019",
+      "pose": {"x": 48.0, "y": 3.0, "z": -5.0},
+      "payload": {
+        "detections": [
+          {"class": "pier_damage", "confidence": 0.77}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Secrets never get committed.
+.env
+
+# Model weights are large and fetched/trained separately.
+weights/
+
+# Pipeline run outputs.
+out/
+
+# Generated web dashboard data bundle (cloud/result/frames).
+web/data/
+
+__pycache__/
+*.pyc
+
+# Scratch/temp files from local runs.
+_*.log
+_*.txt
+_*.py
