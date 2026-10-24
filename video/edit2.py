@@ -143,8 +143,8 @@ def kiro_card(d):
 def triage_card(d):
     card_bg(d, 225)
     d.text((160, 200), "STATEWIDE TRIAGE · 5,252 MASSACHUSETTS BRIDGES · NBI 2022", font=F(BC, 48), fill=CYAN + (255,), anchor="ls")
-    rows = [("1", "80.1", "N Washington St over the Charles River", "scour critical"), ("2", "78.9", "US 44 Winthrop St over the Palmer River", "scour critical"),
-            ("3", "78.5", "Elm St over the Sudbury River", "scour critical")]
+    rows = [("1", "60.1", "N Washington St over the Charles River", "scour critical · 3/9"), ("2", "59.6", "Bridge St over the Mill River", "scour critical · 3/9"),
+            ("3", "58.9", "US 44 Winthrop St over the Palmer River", "scour critical · 3/9")]
     for i, (r, s, b, why) in enumerate(rows):
         y = 330 + i * 110; col = AMBER if i == 0 else WHITE
         d.text((160, y), f"#{r}", font=F(BC, 80), fill=col + (255,), anchor="ls"); d.text((300, y), b, font=F(BR, 48), fill=col + (255,), anchor="ls")

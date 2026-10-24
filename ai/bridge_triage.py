@@ -39,7 +39,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_NBI_PATH = os.path.join(_REPO_ROOT, "data", "nbi", "MA22.txt")
 
 # "Today" for overdue calculations. The challenge framing is 2026-10.
-TODAY = date(2026, 10, 1)
+TODAY = date(2022, 3, 31)   # the NBI 2022 snapshot (latest item 93B date in the file is 03/22): "overdue" is as of the data, not today
 
 # Risk-score weights. They are summed, so the relative magnitude is what
 # matters; the final score is rescaled to 0..100 by the sum of weights used.
