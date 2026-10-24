@@ -20,15 +20,17 @@
       <h1>Bridge Inspection</h1>
       <span id="mission" class="mission">loading…</span>
     </div>
+    <nav class="tabs">
+      <button id="tab-defects" class="tab on">Bridge Defects</button>
+      <button id="tab-health" class="tab">Platform Health</button>
+    </nav>
     <div id="headline" class="headline">—</div>
   </header>
 
-  <main>
-    <section class="panel metrics">
-      <h2>Health</h2>
+  <!-- ===================== TAB 1 — BRIDGE DEFECTS ===================== -->
+  <main id="view-defects" class="layout">
+    <section class="panel kpi-row">
       <div id="metrics" class="metric-grid"></div>
-      <h2 id="report-h">Report (AI draft)</h2>
-      <div id="report" class="report">—</div>
     </section>
 
     <section class="panel viz">
@@ -43,7 +45,7 @@
     </section>
 
     <section class="panel feed">
-      <h2>Inspection feed <small id="feed-info"></small></h2>
+      <h2>Captured imagery <small id="feed-info"></small></h2>
       <div class="feed-mode">
         <button id="mode-stills" class="on">Annotated stills</button>
         <button id="mode-video">Video</button>
@@ -62,15 +64,48 @@
       <div id="filmstrip" class="filmstrip"></div>
     </section>
 
+    <section class="panel elements">
+      <h2>Per-element condition</h2>
+      <div id="element-cards" class="element-cards"></div>
+    </section>
+
+    <section class="panel report-panel">
+      <h2 id="report-h">Engineering assessment (AI draft)</h2>
+      <div id="report" class="report">—</div>
+    </section>
+
     <section class="panel table">
       <h2>Detections</h2>
       <table id="det-table">
         <thead><tr>
           <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th>
-          <th>Roughness</th><th>Change</th><th>Evidence</th>
+          <th>Geometry</th><th>Change</th><th>Confirm</th><th>Model</th><th>Evidence</th>
         </tr></thead>
         <tbody></tbody>
       </table>
+    </section>
+  </main>
+
+  <!-- ===================== TAB 2 — PLATFORM HEALTH ===================== -->
+  <main id="view-health" class="layout" hidden>
+    <section class="panel platform" id="drone-panel">
+      <h2>Drone <small id="drone-model"></small> <span id="drone-badge"></span></h2>
+      <div id="drone-kpis" class="metric-grid"></div>
+      <h3>Mission utilization</h3>
+      <div id="drone-util" class="util-bars"></div>
+      <h3>GNSS &amp; positioning</h3>
+      <div id="drone-gnss" class="kv"></div>
+      <h3>LiDAR &amp; data quality</h3>
+      <div id="drone-dq" class="kv"></div>
+    </section>
+
+    <section class="panel platform" id="rov-panel">
+      <h2>ROV <small id="rov-model"></small> <span id="rov-badge"></span></h2>
+      <div id="rov-kpis" class="metric-grid"></div>
+      <h3>Mission utilization</h3>
+      <div id="rov-util" class="util-bars"></div>
+      <h3>Sonar &amp; camera</h3>
+      <div id="rov-dq" class="kv"></div>
     </section>
   </main>
 

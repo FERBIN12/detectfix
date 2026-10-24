@@ -17,3 +17,4 @@ __pycache__/
 _*.log
 _*.txt
 _*.py
+!__init__.py

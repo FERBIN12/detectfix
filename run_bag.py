@@ -22,7 +22,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from pipeline import agents, correlation, detection, indexing, lidar, severity, weights  # noqa: E402
+from pipeline import agents, correlation, detection, health, indexing, lidar, severity, weights  # noqa: E402
 from pipeline import rosbag as rb  # noqa: E402
 from pipeline.orchestrator import compute_metrics  # noqa: E402
 
@@ -119,12 +119,22 @@ def main() -> int:
     report = agents.draft_report(detections)
     dashboard = agents.build_dashboard(report, metrics)
 
+    # Platform health + data quality (Tab 2). Drone is real from telemetry;
+    # ROV is explicit filler for this drone-only bag.
+    platform_health = health.build_health(bag)
+    dh = platform_health.get("drone") or {}
+    if dh:
+        print(f"  drone health: {dh['mission']['duration_s']}s mission, "
+              f"{dh['utilization']['inspecting_pct']}% inspecting, "
+              f"GNSS {dh['gnss']['quality']}, data {dh['data_quality']['grade']}")
+
     result = {
         "mission_id": mission_id,
         "detections": [d.to_dict() for d in detections],
         "metrics": metrics,
         "report": report,
         "dashboard": dashboard,
+        "health": platform_health,
         "index_counts": {k: index.count(k) for k in indexing.STREAM_KINDS},
     }
 

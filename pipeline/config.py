@@ -10,13 +10,17 @@ import json
 import os
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent.parent     # the bridge-inspection/ folder
+
 try:
     from dotenv import load_dotenv
+    # Load the .env that sits in the bridge-inspection folder explicitly, so it
+    # is found regardless of the current working directory. Fall back to the
+    # default search too.
+    load_dotenv(HERE / ".env")
     load_dotenv()
 except ImportError:  # python-dotenv is optional; env may be set by the shell
     pass
-
-HERE = Path(__file__).resolve().parent.parent     # the bridge-inspection/ folder
 
 
 # --- Secrets (from .env) ------------------------------------------------------
@@ -24,10 +28,10 @@ HERE = Path(__file__).resolve().parent.parent     # the bridge-inspection/ folde
 # dashboard agents instead of the repo's local Qwen/vLLM. The interface stays
 # model-agnostic (a local model remains a fallback), but Claude is the default.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com").rstrip("/")
 CLAUDE_TIMEOUT = float(os.getenv("CLAUDE_TIMEOUT", "30"))
-CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "1500"))
+CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "3000"))
 
 # Local-model fallback (same shape as navbot/llm.py's OpenAI-compatible client).
 FALLBACK_LLM_URL = os.getenv("FALLBACK_LLM_URL", "http://127.0.0.1:8000/v1").rstrip("/")
