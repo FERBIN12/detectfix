@@ -24,10 +24,17 @@ MERGE_DIST_M = 0.5
 PRIOR_MATCH_M = 1.0
 
 
+def _pos(d: Detection):
+    """Defect position: its world position when known, else the capture pose.
+    Capture poses can coincide for different defects (one sonar ping seeing two
+    anomalies, one camera frame showing two cracks)."""
+    if d.world_pos and len(d.world_pos) >= 3:
+        return d.world_pos[:3]
+    return (d.pose.x, d.pose.y, d.pose.z)
+
+
 def _dist(a: Detection, b: Detection) -> float:
-    return math.sqrt((a.pose.x - b.pose.x) ** 2
-                     + (a.pose.y - b.pose.y) ** 2
-                     + (a.pose.z - b.pose.z) ** 2)
+    return math.dist(_pos(a), _pos(b))
 
 
 def merge_duplicates(detections: list[Detection]) -> list[Detection]:
@@ -65,11 +72,17 @@ def assign_locations(detections: list[Detection], element_map: Optional[dict] = 
         return
     elements = element_map.get("elements", [])
     for det in detections:
+        # Use the defect's own world position when known. The capture pose is
+        # where the camera/ROV was, which can sit nearer a neighbouring element
+        # (found by the GT self-check: D09 on the girders was labelled
+        # canal_wall_W because the frame was shot from beside the west wall).
+        px, py, pz = (det.world_pos[:3] if det.world_pos and len(det.world_pos) >= 3
+                      else (det.pose.x, det.pose.y, det.pose.z))
         best, best_d = None, float("inf")
         for el in elements:
-            d = math.sqrt((det.pose.x - el.get("x", 0)) ** 2
-                          + (det.pose.y - el.get("y", 0)) ** 2
-                          + (det.pose.z - el.get("z", 0)) ** 2)
+            d = math.sqrt((px - el.get("x", 0)) ** 2
+                          + (py - el.get("y", 0)) ** 2
+                          + (pz - el.get("z", 0)) ** 2)
             if d < best_d:
                 best, best_d = el, d
         if best is not None:
@@ -77,7 +90,9 @@ def assign_locations(detections: list[Detection], element_map: Optional[dict] = 
             det.location.structure.face = best.get("face", "")
             det.location.structure.station = best.get("station")
             det.location.structure.offset = best.get("offset")
-            if det.platform == "rov":
+            # Keep a depth already set from the ROV pose/GT; only fall back to the
+            # geodetic elevation when nothing better exists.
+            if det.platform == "rov" and det.location.structure.elevation_or_depth is None:
                 det.location.structure.elevation_or_depth = det.location.geodetic.elevation
 
 

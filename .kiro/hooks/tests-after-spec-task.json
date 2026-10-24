@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run tests after each spec task",
+      "trigger": "PostTaskExec",
+      "description": "When a spec task is marked complete, run the whole test suite so a task is only 'done' if the suite is green.",
+      "action": {
+        "type": "command",
+        "command": "python -m unittest discover -s tests",
+        "timeout": 180
+      }
+    }
+  ]
+}

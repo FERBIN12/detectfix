@@ -1,0 +1,1 @@
+{"i": 3, "element": "canal_wall_E", "drone": [-32.3221673605656, -38.11408070084414, 1.3870760154724122], "target": [-30.45452637860796, -31.321108266705263, 1.2], "standoff_m": 2.3786211013793945, "gnss": {"sats": 12, "hdop": 1.21, "fix": "RTK FIXED   |  ArduCopter AUTO  ARMED  item 4/37"}}

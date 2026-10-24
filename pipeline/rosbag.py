@@ -34,7 +34,22 @@ DEFAULT_TOPICS = {
     "odom": "/odom",
 }
 
-# Map the bag's defect taxonomy to the pipeline's drone classes.
+# ROV topics in the drone+ROV bag (run_20261024_134808). /rov/odom is the
+# ArduSub EKF on the DVL -- what the ROV *believes* -- and is what the pipeline
+# uses; /rov/truth/odom is simulator ground truth, used only to measure drift.
+ROV_TOPICS = {
+    "odom": "/rov/odom",
+    "truth": "/rov/truth/odom",
+    "sonar": "/rov/sonar/image",
+    "camera": "/rov/camera",
+    "status": "/rov/status",
+}
+
+# The README of the drone+ROV bag puts the water line at z = 0 (world frame).
+# GT defects below it are underwater and belong to the ROV.
+WATERLINE_Z = 0.0
+
+# Map the bag's defect taxonomy to the pipeline's classes.
 GT_CLASS_MAP = {
     "spall": "spall",
     "crack": "crack",
@@ -43,7 +58,21 @@ GT_CLASS_MAP = {
     "exposed_rebar": "exposed_rebar",
     "corrosion": "corrosion_stain",
     "corrosion_stain": "corrosion_stain",
+    # underwater (ROV) defect types
+    "scour": "scour",
+    "missing_block": "missing_block",
+    "undermining": "undermining",
+    "section_loss": "section_loss",
+    "pier_damage": "pier_damage",
 }
+
+
+def gt_platform(position) -> str:
+    """Which platform can see a GT defect: below the water line -> ROV."""
+    try:
+        return "rov" if float(position[2]) < WATERLINE_Z else "drone"
+    except (TypeError, IndexError, ValueError):
+        return "drone"
 
 # GT severity (1-3) -> a plausible detector confidence, so low-severity defects
 # don't all read as max-confidence. Code assigns the final severity later.
@@ -87,12 +116,24 @@ def decode_bag(bag_dir: str, topics: Optional[dict] = None) -> tuple[list[Captur
     Captures of kind 'rgb' and 'lidar' get their pose joined from /odom.
     Heavy pixel/point payloads are NOT stored; lidar captures keep the message
     offset so the LiDAR stage can read just that cloud when it is retraced.
+
+    If the directory has no .mcap but does have inspection_frames/ (the trimmed
+    sample_data/ mission committed to the repo), fall back to decode_frames().
     """
+    try:
+        mcap_path = _find_mcap(bag_dir)
+    except FileNotFoundError:
+        if (Path(bag_dir) / "inspection_frames").is_dir():
+            print(f"  no .mcap in {bag_dir}; using inspection_frames/ sidecars "
+                  "+ telemetry.csv (frame-sidecar fallback)", flush=True)
+            return decode_frames(bag_dir)
+        raise FileNotFoundError(
+            f"no .mcap and no inspection_frames/ in {bag_dir}") from None
+
     from mcap.reader import make_reader
     from mcap_ros2.decoder import DecoderFactory
 
     topics = {**DEFAULT_TOPICS, **(topics or {})}
-    mcap_path = _find_mcap(bag_dir)
 
     pose_tl = PoseTimeline()
     rgb_msgs: list[tuple[float, str]] = []     # (time, capture_id)
@@ -102,6 +143,9 @@ def decode_bag(bag_dir: str, topics: Optional[dict] = None) -> tuple[list[Captur
     # message's time + sequence, so we skip decoding those heavy payloads
     # (1056 images + 4288 clouds) entirely -- a large speedup on real bags.
     decoder = DecoderFactory()
+    # Count messages per topic ourselves: these bags leave message.sequence at
+    # 0 for every message, which made every capture id "rgb:0" / "lidar:0".
+    seq_of: dict[str, int] = {}
     with open(mcap_path, "rb") as f:
         reader = make_reader(f)
         odom_decode = None
@@ -109,6 +153,8 @@ def decode_bag(bag_dir: str, topics: Optional[dict] = None) -> tuple[list[Captur
                 topics=[topics["odom"], topics["rgb"], topics["lidar"]]):
             topic = channel.topic
             t = message.log_time / 1e9
+            seq = seq_of.get(topic, 0)
+            seq_of[topic] = seq + 1
             if topic == topics["odom"]:
                 if odom_decode is None:
                     odom_decode = decoder.decoder_for(channel.message_encoding, schema)
@@ -119,9 +165,9 @@ def decode_bag(bag_dir: str, topics: Optional[dict] = None) -> tuple[list[Captur
                             Pose(x=p.position.x, y=p.position.y, z=p.position.z,
                                  roll=o.x, pitch=o.y, yaw=o.z))   # quat stored raw
             elif topic == topics["rgb"]:
-                rgb_msgs.append((t, f"rgb:{message.sequence}"))
+                rgb_msgs.append((t, f"rgb:{seq}"))
             elif topic == topics["lidar"]:
-                lidar_msgs.append((t, f"lidar:{message.sequence}", message.log_time))
+                lidar_msgs.append((t, f"lidar:{seq}", message.log_time))
 
     captures: list[Capture] = []
     for t, cid in rgb_msgs:
@@ -129,6 +175,38 @@ def decode_bag(bag_dir: str, topics: Optional[dict] = None) -> tuple[list[Captur
     for t, cid, off in lidar_msgs:
         captures.append(Capture("lidar", t, cid, pose_tl.at(t),
                                 payload={"bag": str(mcap_path), "log_time": off}))
+    return captures, pose_tl
+
+
+def decode_frames(bag_dir: str) -> tuple[list[Capture], PoseTimeline]:
+    """Stdlib-only stand-in for decode_bag when the .mcap is absent.
+
+    Pose timeline comes from inspection_frames/telemetry.csv (t,x,y,z,yaw,...);
+    one 'rgb' capture per NNNN.json sidecar, posed at the sidecar's drone
+    position. No LiDAR captures are produced: geometry then comes from the
+    accumulated world map (map/lidar_map_world.npy) via lidar.WorldCloud.
+    """
+    import csv
+
+    frames_dir = Path(bag_dir) / "inspection_frames"
+    pose_tl = PoseTimeline()
+    tel = frames_dir / "telemetry.csv"
+    if tel.exists():
+        with tel.open(encoding="utf-8-sig", newline="") as fh:
+            for row in csv.DictReader(fh):
+                try:
+                    pose_tl.add(float(row["t"]), Pose(x=float(row["x"]), y=float(row["y"]),
+                                                      z=float(row["z"]), yaw=float(row.get("yaw") or 0.0)))
+                except (KeyError, TypeError, ValueError):
+                    continue
+
+    captures: list[Capture] = []
+    for sidecar in sorted(frames_dir.glob("[0-9][0-9][0-9][0-9].json")):
+        meta = json.loads(sidecar.read_text(encoding="utf-8-sig"))
+        drone = meta.get("drone") or [0.0, 0.0, 0.0]
+        captures.append(Capture("rgb", float(meta.get("i", 0)), f"frame:{sidecar.stem}",
+                                Pose(x=float(drone[0]), y=float(drone[1]), z=float(drone[2])),
+                                payload={"image_path": str(sidecar.with_suffix(".png"))}))
     return captures, pose_tl
 
 
@@ -159,6 +237,8 @@ def gt_detections(bag_dir: str, mission_id: str, captures: list[Capture],
         if cls is None:
             continue
         pos = d.get("position", [0, 0, 0])
+        if gt_platform(pos) != "drone":
+            continue   # underwater: the drone camera can't see it (pipeline.rov handles it)
         frame = _nearest_frame(rgb_caps, pos)
         if frame is None:
             continue
@@ -174,6 +254,7 @@ def gt_detections(bag_dir: str, mission_id: str, captures: list[Capture],
         det._gt_position = pos          # type: ignore[attr-defined]
         det._gt_element = d.get("element", "")  # type: ignore[attr-defined]
         det._gt_severity = int(d.get("severity", 0))  # type: ignore[attr-defined]
+        det._gt_id = d.get("id", "")    # type: ignore[attr-defined]
         detections.append(det)
     return detections
 

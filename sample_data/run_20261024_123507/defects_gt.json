@@ -1,0 +1,149 @@
+{
+ "bridge": "Craigie Drawbridge (NBI B160134EMDOTNBI) and the Charles River Dam lock canal walls, Boston",
+ "defects": [
+  {
+   "id": "D01",
+   "type": "spall",
+   "severity": 3,
+   "element": "canal_wall_E",
+   "position": [
+    -25.094,
+    -23.844,
+    1.0
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D02",
+   "type": "crack",
+   "severity": 2,
+   "element": "canal_wall_E",
+   "position": [
+    -20.432,
+    -17.343,
+    2.3
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D03",
+   "type": "efflorescence",
+   "severity": 2,
+   "element": "canal_wall_E",
+   "position": [
+    -29.173,
+    -29.533,
+    0.8
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D04",
+   "type": "rust_streak",
+   "severity": 2,
+   "element": "canal_wall_E",
+   "position": [
+    7.537,
+    21.667,
+    1.6
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D05",
+   "type": "crack",
+   "severity": 3,
+   "element": "canal_wall_W",
+   "position": [
+    -7.537,
+    -21.667,
+    1.2
+   ],
+   "normal": [
+    -0.8126981532953377,
+    0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D06",
+   "type": "spall",
+   "severity": 2,
+   "element": "canal_wall_W",
+   "position": [
+    -16.859,
+    -34.67,
+    2.0
+   ],
+   "normal": [
+    -0.8126981532953377,
+    0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D07",
+   "type": "efflorescence",
+   "severity": 1,
+   "element": "canal_wall_W",
+   "position": [
+    9.944,
+    2.714,
+    1.5
+   ],
+   "normal": [
+    -0.8126981532953377,
+    0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D08",
+   "type": "rust_streak",
+   "severity": 2,
+   "element": "bascule_girders",
+   "position": [
+    -4.154,
+    -2.362,
+    5.5
+   ],
+   "normal": [
+    0.5826849162543579,
+    0.8126981532953377,
+    0.0
+   ]
+  },
+  {
+   "id": "D09",
+   "type": "rust_streak",
+   "severity": 1,
+   "element": "bascule_girders",
+   "position": [
+    5.27,
+    2.202,
+    5.5
+   ],
+   "normal": [
+    0.5826849162543579,
+    0.8126981532953377,
+    0.0
+   ]
+  }
+ ]
+}

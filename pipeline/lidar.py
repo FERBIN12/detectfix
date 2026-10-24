@@ -188,27 +188,40 @@ class WorldCloud:
     def __init__(self, points):
         self._points = points   # list[(x,y,z)] or numpy array
 
+    # Map file names, in preference order. The drone-only bag ships
+    # lidar_map_world.*; the drone+ROV bag ships drone_lidar_world.* (above the
+    # water line) and rov_sonar_world.* (below it).
+    LIDAR_NAMES = ("lidar_map_world", "drone_lidar_world")
+    SONAR_NAMES = ("rov_sonar_world",)
+
     @classmethod
-    def load(cls, map_dir: str):
+    def load(cls, map_dir: str, names=None):
         from pathlib import Path
         d = Path(map_dir)
-        npy = d / "lidar_map_world.npy"
-        if npy.exists():
-            try:
-                import numpy as np  # type: ignore
-                arr = np.load(str(npy))
-                return cls(arr[:, :3])
-            except ImportError:
-                pass
-        pcd = d / "lidar_map_world_5cm.pcd"
-        if pcd.exists():
-            try:
-                import open3d as o3d  # type: ignore
-                cloud = o3d.io.read_point_cloud(str(pcd))
-                return cls([tuple(p) for p in cloud.points])
-            except ImportError:
-                pass
+        for name in (names or cls.LIDAR_NAMES):
+            npy = d / f"{name}.npy"
+            if npy.exists():
+                try:
+                    import numpy as np  # type: ignore
+                    arr = np.load(str(npy))
+                    return cls(arr[:, :3])
+                except ImportError:
+                    pass
+        for name in (names or cls.LIDAR_NAMES):
+            for pcd in (d / f"{name}_5cm.pcd", d / f"{name}.pcd"):
+                if pcd.exists():
+                    try:
+                        import open3d as o3d  # type: ignore
+                        cloud = o3d.io.read_point_cloud(str(pcd))
+                        return cls([tuple(p) for p in cloud.points])
+                    except ImportError:
+                        pass
         return None
+
+    @classmethod
+    def load_sonar(cls, map_dir: str):
+        """The ROV's accumulated sonar map (below the water line), if present."""
+        return cls.load(map_dir, names=cls.SONAR_NAMES)
 
     def crop(self, center, half=0.6):
         cx, cy, cz = center
@@ -224,7 +237,8 @@ class WorldCloud:
 
 
 def measure_from_world_map(world: "WorldCloud", detections: list[Detection],
-                           positions: dict, half: float = 0.15) -> None:
+                           positions: dict, half: float = 0.15,
+                           platform: str = "drone") -> None:
     """Fill geometry by cropping the world map tightly around each detection's
     known world position and measuring LOCAL SURFACE ROUGHNESS only.
 
@@ -239,7 +253,7 @@ def measure_from_world_map(world: "WorldCloud", detections: list[Detection],
     if world is None:
         return
     for det in detections:
-        if det.platform != "drone":
+        if det.platform != platform:
             continue
         pos = positions.get(det.detection_id)
         if pos is None:

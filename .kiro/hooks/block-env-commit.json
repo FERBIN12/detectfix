@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Block commits that stage .env",
+      "trigger": "PreToolUse",
+      "description": "Before any shell command runs, block (exit 2) a git add/commit that names a .env file, force-adds, or would commit an already-staged or tracked .env. Non-git commands pass straight through.",
+      "matcher": "execute_pwsh|control_pwsh_process|executeBash|shell|bash",
+      "action": {
+        "type": "command",
+        "command": "python scripts/guard_env_commit.py",
+        "timeout": 20
+      }
+    }
+  ]
+}

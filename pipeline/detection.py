@@ -108,14 +108,18 @@ class CameraDetector:
 
 
 class SonarDetector:
-    """Slot: https://github.com/remaro-network/KD-YOLOX-ViT (YOLOX-ViT + KD).
+    """ROV sonar detector slot.
 
-    SWDD/wall pretrained weights are the base; fine-tuned to pier/substructure
-    structural classes (scour / section_loss / pier_damage). Live loads the
-    YOLOX-ViT checkpoint; mock replays payload detections.
+    Live (.pt weights): a generic sonar object detector run through
+    Ultralytics -- by default "Sonnet Model C" (weights.resolve_sonar_weights),
+    trained on side-scan seabed hazards, not structural defects. Every box it
+    returns becomes class "sonar_anomaly"; code then filters boxes, places them
+    in the world from the fan geometry, and clusters repeats (pipeline.rov).
+    Other weights: the KD-YOLOX-ViT predictor hook. Mock: replays payload
+    detections.
     """
 
-    model_version = "kd-yolox-vit@mock"
+    model_version = "sonar@mock"
 
     def __init__(self, weights: Optional[str] = None, conf_threshold: float = 0.3):
         self.weights = weights
@@ -124,12 +128,35 @@ class SonarDetector:
 
     def _load(self):
         if self._predictor is None and self.weights:
-            # KD-YOLOX-ViT is YOLOX-based; its predictor is project-specific.
-            # Wired here lazily so the import cost is only paid in live mode.
-            from yolox_vit import build_predictor  # type: ignore
-            self._predictor = build_predictor(self.weights)
-            self.model_version = f"kd-yolox-vit@{Path(self.weights).stem}"
+            if str(self.weights).endswith(".pt"):
+                from ultralytics import YOLO  # type: ignore
+                model = YOLO(self.weights)
+
+                def predict(img, conf):
+                    out = []
+                    for r in model.predict(img, conf=conf, verbose=False):
+                        names = getattr(model, "names", {})
+                        for b in getattr(r, "boxes", []) or []:
+                            out.append({"class": "sonar_anomaly",
+                                        "raw_class": names.get(int(b.cls), str(int(b.cls))),
+                                        "confidence": float(b.conf),
+                                        "box": [float(v) for v in b.xyxy[0].tolist()]})
+                    return out
+
+                self._predictor = predict
+                self.model_version = f"sonar-yolo@{Path(self.weights).stem}"
+            else:
+                # KD-YOLOX-ViT is YOLOX-based; its predictor is project-specific.
+                from yolox_vit import build_predictor  # type: ignore
+                self._predictor = build_predictor(self.weights)
+                self.model_version = f"kd-yolox-vit@{Path(self.weights).stem}"
         return self._predictor
+
+    def predict_image(self, img) -> list[dict]:
+        """Raw model output for one sonar image (ndarray or path): dicts with
+        class, raw_class, confidence, box [x1,y1,x2,y2]. [] without weights."""
+        predictor = self._load()
+        return predictor(img, conf=self.conf_threshold) if predictor else []
 
     def detect(self, mission_id: str, cap: Capture) -> list[Detection]:
         predictor = self._load()
@@ -157,12 +184,15 @@ class SonarDetector:
         preds = predictor(img, conf=self.conf_threshold)
         out = []
         for p in preds:
-            out.append(make_detection(
+            det = make_detection(
                 mission_id=mission_id, platform="rov", cls=p["class"],
                 confidence=float(p["confidence"]), timestamp_utc=cap.timestamp_utc,
                 pose=cap.pose, source_frame_id=cap.capture_id,
                 evidence_frame_ids=[cap.capture_id], model_version=self.model_version,
-            ))
+            )
+            det._raw_class = p.get("raw_class")   # type: ignore[attr-defined]
+            det._bbox = p.get("box")              # type: ignore[attr-defined]
+            out.append(det)
         return out
 
 

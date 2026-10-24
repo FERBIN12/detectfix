@@ -12,6 +12,7 @@ It expects export_web.py to have been run first (writes web/data/). If the
 bundle is missing it still serves the UI with an on-screen hint.
 """
 import argparse
+import json
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +20,15 @@ from urllib.parse import unquote, urlparse
 
 HERE = Path(__file__).resolve().parent
 WEB = HERE / "web"
+REVIEWS = HERE / "out" / "reviews"      # sign-off records (gitignored with out/)
+
+sys.path.insert(0, str(HERE))
+from pipeline import review  # noqa: E402
+
+
+def _result():
+    p = WEB / "data" / "result.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
          ".css": "text/css; charset=utf-8", ".json": "application/json",
@@ -70,9 +80,30 @@ def make_handler(frames_dir: Path):
                 if frames_dir in f.parents and f.is_file() and f.suffix == ".png":
                     return self._send(200, f.read_bytes(), TYPES[".png"])
                 return self._send(404, b"frame not found", "text/plain")
+            if path == "/api/review":
+                res = _result()
+                if res is None:
+                    return self._send(404, b'{"error":"no result exported"}', TYPES[".json"])
+                return self._send(200, json.dumps(review.load(REVIEWS, res)), TYPES[".json"])
             if path == "/favicon.ico":
                 return self._send(204, b"", TYPES[".ico"])
             return self._send(404, b"not found", "text/plain")
+
+        def do_POST(self):
+            if unquote(urlparse(self.path).path) != "/api/review":
+                return self._send(404, b"not found", "text/plain")
+            res = _result()
+            if res is None:
+                return self._send(404, b'{"error":"no result exported"}', TYPES[".json"])
+            try:
+                n = min(int(self.headers.get("Content-Length", "0")), 10_000)
+                body = json.loads(self.rfile.read(n) or b"{}")
+                rec = review.apply(REVIEWS, res, str(body.get("action", "")),
+                                   reviewer=str(body.get("reviewer", "")), note=str(body.get("note", "")),
+                                   expected_hash=str(body.get("report_hash", "")))
+            except (ValueError, review.ReviewError) as e:
+                return self._send(400, json.dumps({"error": str(e)}), TYPES[".json"])
+            return self._send(200, json.dumps(rec), TYPES[".json"])
 
         def _send_range(self, fpath, ctype):
             """Serve a file with HTTP Range support (needed for <video> seeking)."""
@@ -121,7 +152,7 @@ def main() -> int:
     httpd = ThreadingHTTPServer((args.host, args.port), make_handler(frames_dir))
     httpd.daemon_threads = True
     shown = "localhost" if args.host in ("0.0.0.0", "") else args.host
-    print(f"Bridge-inspection dashboard on http://{shown}:{args.port}")
+    print(f"Hyperion dashboard on http://{shown}:{args.port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

@@ -6,7 +6,7 @@ MassDOT Aeronautics already flies drones for bridge/rail/road inspection, but th
 
 This project proposes a ground-station-coordinated drone + ROV inspection system where:
 - A **drone** (Holybro X500 V2, RGB camera + LiDAR) inspects the superstructure and surroundings.
-- An **ROV** (sonar + camera) inspects the substructure underwater, directed in part by what the drone finds above.
+- An **ROV** (sonar primary, camera to confirm) inspects the substructure underwater, directed in part by what the drone finds above.
 - Defect **detection** is fully automated (YOLO-based computer vision — no manual frame review).
 - A **human operator supervises the mission** (flight/dive plan, live feed, override) but does not do the detection work.
 - An **agentic AI** correlates detections across sensors and inspection cycles and drafts the inspection report; it is constrained to the structured detection data (not raw imagery) and validated against it, so the model explains findings rather than inventing them.
@@ -27,27 +27,23 @@ Drone (RGB camera primary, LiDAR for geometry/scale)     ROV (sonar primary loca
 └───────────────────────────────────┬───────────────────────────────────────────┘
                                      ▼
 ┌───────────────────── DETECTION (automated, no human in the loop) ─────────────┐
-│ YOLOv8/v11, separate fine-tuned weights per domain:                           │
-│   aerial  → crack / spall / exposed rebar / corrosion stain                   │
-│   underwater → pier damage / visible biofouling (camera-based, sonar-gated)   │
-│ two-pass: fast onboard edge pass (live ops) + full-res ground-station batch   │
-│ pass (final record)                                                           │
+│ YOLO models, separate weights per domain:                                     │
+│   aerial camera → crack / spall / exposed rebar / corrosion stain             │
+│   underwater sonar → anomalies (primary); ROV camera confirms when the water  │
+│                      is clear enough (sonar-first, camera-confirm)            │
 └───────────────────────────────────┬───────────────────────────────────────────┘
                                      ▼
-┌───────────────── MAPPING / STITCHING (single location, not per-frame) ────────┐
-│  near-planar faces (deck, abutments)   → orthomosaic (OpenDroneMap/WebODM),   │
-│                                            detect-once on the mosaic           │
-│  non-planar (piers, bearings, underside)→ textured 3D mesh (SfM + LiDAR),     │
-│                                            per-frame detections projected on  │
-│  underwater (turbidity defeats photomosaic)→ sonar-based 3D pier reconstruction│
-│  georeferenced via GCPs / physical fiducials on the structure                 │
+┌───────────────── MAPPING / LOCATION (single location, not per-frame) ─────────┐
+│  accumulated LiDAR map (above water) + sonar map (below water), one world     │
+│  frame; each defect is placed on it and assigned to the nearest element       │
+│  near-planar walls → per-wall orthomosaic from the frames (planned)          │
 └───────────────────────────────────┬───────────────────────────────────────────┘
                                      ▼
 ┌───────────────── CORRELATION (deterministic code, not the LLM) ───────────────┐
-│  merge near-duplicate detections in mosaic/mesh coordinates                    │
+│  merge near-duplicate detections by world position                            │
 │  assign dual location: geodetic (lat/lon/elev) + structure-relative           │
 │    (element ID, face, station, offset, elevation/depth)                       │
-│  match against prior inspection cycle's mosaic/mesh (feature matching)        │
+│  match against the prior inspection cycle's detection list                    │
 │    → tag new / existing / worsening                                          │
 │  compute severity from rules, not from the LLM's judgment                     │
 └───────────────────────────────────┬───────────────────────────────────────────┘
@@ -78,8 +74,8 @@ Drone (RGB camera primary, LiDAR for geometry/scale)     ROV (sonar primary loca
 
 | Platform | Primary defect sensor | Secondary sensor(s) | Role of secondary |
 |---|---|---|---|
-| Drone (Holybro X500 V2) | RGB camera → YOLO | LiDAR | 3D geometry, scale, SLAM pose, coverage/collision — **not** used for defect classification (too noisy/coarse for fine cracking at achievable standoff) |
-| ROV | Camera → YOLO (when visibility allows) | Sonar | Macro-localizes pier/candidate defect region in turbid water before camera confirms (sonar-first, camera-confirm) |
+| Drone (Holybro X500 V2) | RGB camera → YOLO | LiDAR | 3D map, scale, surface geometry — **not** used for defect classification (too noisy/coarse for fine cracking at achievable standoff) |
+| ROV (BlueROV2 Heavy) | Imaging sonar → YOLO | Camera | Confirms a sonar detection when a co-located frame is clear enough (measured RMS contrast); otherwise the detection stays sonar-only |
 
 ## Software / stack
 
@@ -88,13 +84,13 @@ Drone (RGB camera primary, LiDAR for geometry/scale)     ROV (sonar primary loca
 | Middleware | ROS2 (both vehicles) | One autonomy stack across sim and real hardware |
 | Aerial GCS | QGroundControl / MAVSDK | |
 | ROV control | ArduSub/BlueOS-style, tether + acoustic modem fallback | |
-| Detection | YOLOv8/v11, domain-specific fine-tuned weights, SAHI tiling for thin/small defects | Matches published results (CONBRID-YOLOv8, PolyU tuned YOLOv8) |
-| Tracking/mapping | ByteTrack + OpenDroneMap/WebODM (orthomosaic, GCP georeferencing); textured mesh for non-planar members | Avoids counting the same defect twice; avoids parallax error from flat-mosaicing curved geometry |
-| Underwater mapping | Sonar-based 3D pier reconstruction | Photomosaicking generally fails underwater (turbidity, low texture) |
-| Agent framework | Tool-calling LLM agent, read-only tools, structured-data-only input, deterministic validation/fallback | Mirrors the design converged on across 2026 inspection-report-LLM papers; also the exact pattern already proven in this repo's `supervisor/` + `dashboard/` (Hyperion) — reusable skeleton for a hackathon timeline |
+| Detection | YOLOv8 / YOLO11 (Ultralytics), domain-specific weights | Matches published results (CONBRID-YOLOv8, PolyU tuned YOLOv8) |
+| Mapping | Accumulated LiDAR world map + per-wall orthomosaics (planned) | Locate defects once on a map instead of per frame |
+| Underwater mapping | Accumulated sonar point map | Photomosaicking generally fails underwater (turbidity, low texture) |
+| Agent framework | LLM agent, structured-data-only input, deterministic validation/fallback (read-only tool calls planned) | Mirrors the design converged on across 2026 inspection-report-LLM papers |
 | Storage | Postgres/PostGIS (spatial + report records) + object storage for raw imagery/point clouds | |
 | Schema layer | Versioned NBI↔SNBI crosswalk with provenance tagging (legacy-converted vs. SNBI-native) | FHWA itself says the two are indistinguishable without metadata during the transition window |
-| Simulation | Isaac Sim (drone + bridge, RTX LiDAR) bridged via ROS2 to HoloOcean 2.0 or an Isaac-Sim-based sonar framework (ROV side) | Isaac Sim has no native underwater/sonar simulation — needs a second engine sharing the same topics |
+| Simulation | Isaac Sim (drone, bridge, LiDAR, simulated multibeam sonar + turbid-water camera) with ArduCopter / ArduSub SITL, recorded as ROS 2 bags | Both vehicles share one world frame and clock in the sim |
 
 ## Defect location schema (dual coordinate system)
 
@@ -103,17 +99,45 @@ Drone (RGB camera primary, LiDAR for geometry/scale)     ROV (sonar primary loca
 | `lat, lon, elevation` | Dashboard map pin, GIS layer, SNBI geodetic export |
 | `element_id, face, station, offset, elevation_or_depth` | Engineering record, matches AASHTO MBEI/SNBI element-level referencing, robust year-over-year comparison (structure-relative coordinates drift far less across inspection cycles than absolute GPS/mosaic registration does) |
 | `detection_ids[]`, `model_version`, `confidence` | Audit trail — required since inspection reports carry legal/engineering weight |
-| `change_status` (new / existing / worsening) | Computed in code from cross-cycle mosaic/mesh feature matching, never inferred by the LLM |
+| `change_status` (new / existing / worsening) | Computed in code by matching against the prior cycle's detections, never inferred by the LLM |
+| `severity`, `severity_reason`, `recommended_action` | Set by rules in code; the reason is the rule trail shown to the inspector |
+
+---
+
+## Implemented vs. planned
+
+| Component | State | Where / what is missing |
+|---|---|---|
+| One-way flow: decode, time+pose index, retrace | **implemented** | `rosbag.py`, `indexing.py`, `extract_rov.py` |
+| Drone camera detection | **implemented** | Kapuni Model A (`detection.py`) |
+| ROV sonar detection | **implemented** | Sonnet Model C, generic `sonar_anomaly` output (`rov.py`) |
+| ROV camera confirm (clarity gate) | **implemented** | measured RMS contrast >= 0.03 |
+| Geometry: surface roughness from LiDAR / sonar maps | **implemented** | `lidar.py`; no area, no cavity depth |
+| Location: world position + nearest element | **implemented** | `correlation.py` |
+| Correlation, change tagging, rule severity, recommended action | **implemented** | change tagging needs a prior-cycle detection list |
+| Report agent with claim validation + deterministic fallback | **implemented** | `agents.py` (Claude / local / optional Kiro CLI) |
+| Dashboard agent + Hyperion dashboard | **implemented** | `web/`, `serve.py` |
+| Human sign-off gate | **implemented** | `review.py`: state machine, named reviewer, approval pinned to the report hash |
+| Detection evaluation vs ground truth | **implemented** | `evaluation.py`, `eval_bag.py` |
+| Platform health (mission + data quality) | **implemented** | `health.py`, `rov.py` |
+| Hardware health (battery, motors, links, leaks) | **simulated** | `hardware.py`; bags record no hardware telemetry |
+| Mask projection onto the LiDAR surface → `area_mm2` | planned | needs the camera field of view (no `camera_info` in the bags) |
+| Per-wall orthomosaics, detect/merge on the mosaic | planned | needs the camera field of view |
+| Duplicate tracking across frames (ByteTrack), SAHI tiling | planned | |
+| Agent tool calls (`get_detections`, `get_prior_inspection`, …) | planned | the agent currently receives the structured data directly |
+| Postgres/PostGIS storage + object storage | planned | results are JSON files today |
+| NBI↔SNBI crosswalk export with provenance tags | planned | |
+| Risk-based maintenance prioritization | planned | condition × age × traffic × location |
 
 ---
 
 ## Known gaps worth stating up front (strengthens, not weakens, the pitch)
 
-1. **Drone↔ROV geo-registration is unsolved without physical fiducials on the piers** — needed to tie the ROV's dead-reckoned position to the drone's GPS frame.
-2. **Biofouling-via-sonar has no literature precedent** — existing biofouling classifiers are all optical; budget for original data collection here.
-3. **Dataset scarcity is real** across nearly every cited paper — plan on Isaac Sim synthetic data (rendered cracks/spalling/biofouling textures) for pretraining, fine-tuned on a small real set.
-4. **Bandwidth is a real deployment constraint** (tethered ROV + 4K drone feed) — plan for edge pre-filtering, not raw-stream-everything.
-5. **Mosaic/mesh stitching has its own error sources** (seams, parallax on non-planar surfaces) — the final proximity-merge pass is still required, just much lighter than full frame-by-frame triangulation.
+1. **Drone↔ROV registration in the field.** In the sim both vehicles share one world frame. On a real bridge the ROV's DVL position must be tied to the drone's GPS frame; the pipeline reports DVL drift against truth (max 0.6 m on the drone+ROV mission) but does not correct it.
+2. **No bridge-specific sonar model.** The sonar detector is a generic seabed-hazard model and found 1 of 4 underwater defects. Labelled sonar data of bridge substructure is needed.
+3. **Dataset scarcity.** The camera model was trained on real photos and finds 3–4 of 9 simulated defects. Synthetic-to-real fine-tuning is needed in both directions.
+4. **Bandwidth is a real deployment constraint** (tethered ROV + 4K drone feed). Plan for edge pre-filtering, not raw-stream-everything.
+5. **No camera intrinsics in the recordings.** This blocks pixel-accurate defect placement, area measurement and orthomosaics until `camera_info` is recorded.
 
 ---
 

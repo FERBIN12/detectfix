@@ -20,8 +20,13 @@ numpy>=1.24.0
 mcap>=1.1.0                 # read rosbag2 .mcap; JSON-sidecar fallback exists for offline
 mcap-ros2-support>=0.5.0    # ROS2 message decoding for real bags
 
+# --- annotated frames + video (dashboard feed) --------------------------------
+imageio>=2.30.0             # H.264 video encoding for the annotated feed
+imageio-ffmpeg>=0.5.0       # bundled ffmpeg binary (browser-playable mp4)
+
 # --- secrets / config ---------------------------------------------------------
-python-dotenv>=1.0.0        # load ANTHROPIC_API_KEY etc. from .env (optional; shell env also works)
+python-dotenv>=1.0.0        # load ANTHROPIC_API_KEY from .env (required for the Claude agents)
 
 # NOTE: the Claude + local-LLM clients use urllib from the stdlib, so no HTTP
-# client library is required for the report/dashboard agents.
+# client library is required for the report/dashboard agents. Default Claude
+# model is claude-sonnet-5-5 (override with CLAUDE_MODEL in .env).

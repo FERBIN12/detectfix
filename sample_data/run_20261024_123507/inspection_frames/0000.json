@@ -1,0 +1,1 @@
+{"i": 0, "element": "transit", "drone": [-36.144147641367255, -50.37103697080872, 5.21736967086792], "target": [0.0, 0.0, 3.0], "standoff_m": 7.5159101486206055, "gnss": {"sats": 10, "hdop": 1.21, "fix": "RTK FIXED   |  ArduCopter ?  disarmed  item 1/37"}}
