@@ -94,6 +94,7 @@ class Sonar:
             return None, np.zeros((0, 3), np.float32)
         n = np.asarray(nrm, np.float32)[..., :3]
         ok = np.isfinite(r) & (r > 0.1) & (r < self.RMAX)
+        r = np.where(ok, r, 0.0)
         ray_w = self.RAY @ R_world.T
         amp = np.abs(np.sum(ray_w * n, -1)).clip(0.03, 1.0) ** 1.4 * self.rng.rayleigh(0.8, r.shape)
         b = (r / self.RMAX * self.BINS).astype(int).clip(0, self.BINS - 1)

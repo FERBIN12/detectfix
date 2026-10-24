@@ -18,3 +18,4 @@ sim/gui.log
 sim/bridge_world_v1.py
 bags/
 sitl/run_sub/
+!data/stills/rviz_drone_rov.png

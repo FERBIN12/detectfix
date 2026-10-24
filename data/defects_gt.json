@@ -144,6 +144,70 @@
     0.8126981532953377,
     0.0
    ]
+  },
+  {
+   "id": "D10",
+   "type": "scour",
+   "severity": 3,
+   "element": "abutment_E_toe",
+   "position": [
+    -14.314,
+    -8.809,
+    -5.2
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D11",
+   "type": "missing_block",
+   "severity": 3,
+   "element": "canal_wall_E_submerged",
+   "position": [
+    -22.18,
+    -19.781,
+    -2.2
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D12",
+   "type": "crack",
+   "severity": 2,
+   "element": "canal_wall_E_submerged",
+   "position": [
+    -30.921,
+    -31.971,
+    -1.6
+   ],
+   "normal": [
+    0.8126981532953377,
+    -0.5826849162543579,
+    0.0
+   ]
+  },
+  {
+   "id": "D13",
+   "type": "undermining",
+   "severity": 2,
+   "element": "canal_wall_W_footing",
+   "position": [
+    0.621,
+    -10.289,
+    -3.85
+   ],
+   "normal": [
+    -0.8126981532953377,
+    0.5826849162543579,
+    0.0
+   ]
   }
  ]
 }

@@ -102,6 +102,17 @@ if [[ -n "${AC_PID:-}" ]]; then
     record_pid arducopter "$AC_PID"
 fi
 
+# (a2) ArduSub SITL for the BlueROV2 Heavy (instance 1: tcp 5770 bridge, 5772 QGC)
+if [[ "${SUB:-1}" == "1" ]]; then
+    if pgrep -x ardusub >/dev/null 2>&1; then die "an ardusub process is already running - refusing to start a second one."; fi
+    rm -f "$ROOT/sitl/run_sub/eeprom.bin"
+    log "launching ArduSub SITL (BlueROV2 Heavy, DVL navigation) ..."
+    setsid script -qfc "$ROOT/sitl/launch_sub.sh" "$LOGS/sitl_sub.log" >/dev/null 2>&1 &
+    record_pid sitl_sub "$!"
+    wait_tcp_listen 5770 120 || die "ArduSub did not listen on tcp 5770 (see $LOGS/sitl_sub.log)."
+    record_pid ardusub "$(pgrep -x ardusub | head -n1)"
+fi
+
 # -----------------------------------------------------------------------------
 # (b) Isaac Sim bridge world
 # -----------------------------------------------------------------------------
@@ -125,6 +136,12 @@ log "launching the MAVLink mission bridge ..."
 ROUTE=route_dam "$PY" "$ROOT/sim/mav_bridge.py" >"$LOGS/mav_bridge.log" 2>&1 &
 BRIDGE_PID=$!
 record_pid mav_bridge "$BRIDGE_PID"
+
+if [[ "${SUB:-1}" == "1" ]]; then
+    log "launching the ROV bridge (DVL + survey + drone->ROV tasking) ..."
+    "$PY" "$ROOT/sim/sub_bridge.py" >"$LOGS/sub_bridge.log" 2>&1 &
+    record_pid sub_bridge "$!"
+fi
 
 log "waiting for the bridge to report FLYING ..."
 wait_log_line "$LOGS/mav_bridge.log" "FLYING" "$BRIDGE_PID" 600

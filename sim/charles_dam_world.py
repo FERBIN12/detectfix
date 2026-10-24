@@ -150,10 +150,16 @@ _wn = UsdShade.Shader.Get(st, "/World/M/water/Shader").CreateInput("normal_map_t
 def set_water_normal(f):
     _wn.Set(Sdf.AssetPath(os.path.join(WTEX, f"water_n{f % 96:02d}.png"))); _wn.GetAttr().SetColorSpace("raw")
 set_water_normal(0)
-box("/World/Bed", (0, 0, -5.0), (1000, 1000, 0.2), M["soil"])
+box("/World/Bed", (0, 0, -7.0), (1000, 1000, 0.2), M["soil"])
+# canal bed under the bridge: silt heightfield with the scour pit at the east abutment toe (RT.bed_z)
+_bc = np.arange(RT.CANAL_C0, RT.CANAL_C1 + 0.01, 0.5); _br = np.arange(-RT.CANAL_W / 2 - 0.8, RT.CANAL_W / 2 + 0.81, 0.25)
+_BP = np.array([[*cw(c_, r_)[:2], 0.0] for c_ in _bc for r_ in _br]); _BP[:, 2] = [RT.bed_z(x_, y_) for x_, y_, _ in _BP]
+_nr = len(_br)
+_bed = mesh("/World/CanalBed", _BP, [[i * _nr + j, i * _nr + j + 1, (i + 1) * _nr + j + 1, (i + 1) * _nr + j] for i in range(len(_bc) - 1) for j in range(_nr - 1)], M["soil"])
+_bed.CreateDoubleSidedAttr(True)
 
 # ---------------------------------------------------------------- canal walls: individual granite blocks (ashlar), coping, wet band
-WALL_B = -4.0
+WALL_B = RT.WALL_FOOT                                                       # walls run below the bed onto their footings
 BLK_L, BLK_H = 1.6, 0.62
 inst_protos = []
 for i, m in enumerate(M["gran"]):
@@ -391,6 +397,31 @@ for (c, side, z, kind, sev, el) in ((-34.0, -1, 1.0, "spall", 3, "canal_wall_E")
     defect(kind, el, cw(c, r_face, z), sev, n)
 for (gc, rr, kind, sev) in ((-4.6, 2.0, "rust_streak", 2), (4.6, -3.0, "rust_streak", 1)):
     defect(kind, "bascule_girders", cw(gc + 0.26, rr, RT.CLEAR + 0.9), sev, np.array([*RT.C, 0.0]))
+# ---------------------------------------------------------------- underwater defects (ROV): scour pit, missing block, crack, undermining
+def _uw_defect(kind, element, pos, sev, n):
+    did = f"D{len(DEFECTS)+1:02d}"; root = f"/World/Defects/{did}"; p = np.asarray(pos, float); tang = np.array([*RT.C, 0.0])
+    if kind == "crack":
+        defect("crack", element, p, sev, n); return
+    if kind == "missing_block":                                                    # dark void in the face + the block on the bed
+        box(f"{root}/void", tuple(p + n * 0.005), (1.5, 0.02, 0.6), M["crack"], rot_z=HC)
+        fb = p + n * 1.1; fb[2] = RT.bed_z(fb[0], fb[1]) + 0.25
+        box(f"{root}/fallen", tuple(fb), (1.5, 1.1, 0.55), M["gran"][1], rot_z=HC + 23.0)
+    else:                                                                          # scour / undermining: exposed timber piles + void at the toe
+        for k_, dc in enumerate(np.linspace(-1.6, 1.6, 5)):
+            q = p + tang * dc + n * 0.25
+            cyl(f"{root}/pile{k_}", (float(q[0]), float(q[1]), float(q[2] - 0.4)), 0.13, 1.6, M["stain"])
+        box(f"{root}/void", tuple(p + n * 0.01), (3.6, 0.02, 0.45), M["crack"], rot_z=HC)
+        if kind == "scour":
+            for k_ in range(14):                                                   # displaced riprap in the pit
+                q = p + tang * rng.uniform(-2.5, 2.5) + n * rng.uniform(0.4, 2.6); q[2] = RT.bed_z(q[0], q[1]) + 0.12
+                box(f"{root}/rock{k_}", tuple(q), tuple(rng.uniform(0.25, 0.5, 3)), M["riprap"], rot_z=float(rng.uniform(0, 90)))
+    DEFECTS.append(dict(id=did, type=kind, severity=int(sev), element=element, position=[round(float(v), 3) for v in p],
+                        normal=[float(v) for v in n]))
+
+
+for (kind, el, c_, side, z_, sev) in RT.UNDERWATER_DEFECTS:
+    n_ = np.array([*(RT.R * (-side)), 0.0])
+    _uw_defect(kind, el, cw(c_, side * RT.CANAL_W / 2, z_), sev, n_)
 json.dump(dict(bridge="Craigie Drawbridge (NBI B160134EMDOTNBI) and the Charles River Dam lock canal walls, Boston", defects=DEFECTS),
           open(os.path.join(DATA, "defects_gt.json"), "w"), indent=1)
 
@@ -430,6 +461,22 @@ LID_PATH = "/World/Drone/Lidar/sensor"
 chase = UsdGeom.Camera.Define(st, "/World/Chase"); chase.CreateFocalLengthAttr(18.0); chase.CreateClippingRangeAttr(Gf.Vec2f(0.05, 2000))
 c_op = UsdGeom.Xformable(chase).AddTransformOp()
 
+# ---------------------------------------------------------------- BlueROV2 Heavy (rov.py), flown by ArduSub SITL through sub_bridge.py
+from rov import build_rov, Sonar, murk
+ROV_OP, ROV_CAM, ROV_SON = build_rov(st, "/World/ROV", PR)
+
+
+def rov_matrix(p, rpy):
+    """pose from ArduSub's roll/pitch/yaw (NED, rad) at world position p"""
+    return (Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(1, 0, 0), math.degrees(rpy[0]))) *
+            Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 1, 0), -math.degrees(rpy[1]))) *
+            Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), 90.0 - math.degrees(rpy[2]))) * Gf.Matrix4d().SetTranslate(Gf.Vec3d(*map(float, p))))
+
+
+ROV_OP.Set(rov_matrix(RT.SUB_START, (0.0, 0.0, math.radians(90.0 - RT.HEADING_C))))
+rchase = UsdGeom.Camera.Define(st, "/World/ROVChase"); rchase.CreateFocalLengthAttr(14.0); rchase.CreateClippingRangeAttr(Gf.Vec2f(0.05, 300))
+rc_op = UsdGeom.Xformable(rchase).AddTransformOp()
+
 
 def look(op, eye, tgt):
     m = Gf.Matrix4d(); m.SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, tgt)), Gf.Vec3d(0, 0, 1)); op.Set(m.GetInverse())
@@ -452,7 +499,7 @@ def gnss(pos):
 
 # ---------------------------------------------------------------- semantic classes for the simulated thermal camera (thermal.py)
 from pxr import UsdSemantics
-THERMAL_BY_PATH = (("/World/Drone", "drone"), ("/World/Boat", "boat"), ("/World/BoatPad", "boat"), ("/World/Traffic", "vehicle"), ("/World/Trees", "vegetation"),
+THERMAL_BY_PATH = (("/World/Drone", "drone"), ("/World/Boat", "boat"), ("/World/BoatPad", "boat"), ("/World/ROV", "boat"), ("/World/Traffic", "vehicle"), ("/World/Trees", "vegetation"),
                    ("/World/River", "water"), ("/World/Canal/Wet", "granite_wet"), ("/World/Craigie/PierWet", "granite_wet"))
 THERMAL_BY_DEFECT = dict(efflorescence="defect_moisture", spall="defect_delamination", crack="defect_crack", rust_streak="steel_rust")
 THERMAL_BY_MAT = (("water", "water"), ("wet", "granite_wet"), ("algae", "granite_wet"), ("gran", "granite"), ("wallscan", "granite"),
@@ -476,7 +523,7 @@ for root_, cls in THERMAL_BY_PATH:
 n_lab = 0
 for prim in st.Traverse():
     ps = str(prim.GetPath())
-    if not prim.IsA(UsdGeom.Gprim) or ps.startswith(("/World/Defects", "/World/Drone", "/World/Boat", "/World/BoatPad", "/World/Traffic", "/World/Trees")):
+    if not prim.IsA(UsdGeom.Gprim) or ps.startswith(("/World/Defects", "/World/Drone", "/World/Boat", "/World/BoatPad", "/World/ROV", "/World/Traffic", "/World/Trees")):
         continue
     mat = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
     key = (mat.GetPath().name if mat else "").lower()
@@ -526,6 +573,92 @@ if ROS:
     RP = RosPub()
     RP.mission(WP); RP.defects(DEFECTS)
     TRNG, last_pos = np.random.default_rng(7), None
+SUB = os.environ.get("MAV") == "1" and os.environ.get("SUB", "1") == "1"         # the ROV (needs sub_bridge.py on UDP 15001)
+if SUB:
+    import socket
+    rp_rc = rep.create.render_product(ROV_CAM, (640, 360))
+    a_rrgb = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_rrgb.attach([rp_rc])
+    a_rdep = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane"); a_rdep.attach([rp_rc])
+    rp_rs = rep.create.render_product(ROV_SON, (Sonar.W, Sonar.H))
+    a_sd = rep.AnnotatorRegistry.get_annotator("distance_to_camera"); a_sd.attach([rp_rs])
+    a_sn = rep.AnnotatorRegistry.get_annotator("normals"); a_sn.attach([rp_rs])
+    SON = Sonar(np.random.default_rng(5)); SONAR_N = [0]; ROV_IMG = [None, None]
+    SSOCK = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); SSOCK.bind(("127.0.0.1", 15001)); SSOCK.setblocking(False)
+    SSTATE = {}
+    DEF_BY_ID = {d_["id"]: d_ for d_ in DEFECTS}
+    if ROS:
+        from visualization_msgs.msg import Marker, MarkerArray
+        from geometry_msgs.msg import Point
+        RP_R = RosPub("inspection_rov", ns="/rov", frame_prefix="rov/")                       # what the ROV believes (EKF on DVL)
+        RP_T = RosPub("inspection_rov_truth", ns="/rov/truth", frame_prefix="rov_truth/")     # ground truth, to show the DVL drift
+        PUB_BEAMS = RP_R.node.create_publisher(MarkerArray, "/rov/dvl/beams", 1)
+        PUB_COOP = RP_R.node.create_publisher(MarkerArray, "/coop/tasks", 1)
+
+
+def _mk(ns, i, typ, rgba, scale):
+    mk = Marker(); mk.header.frame_id = "map"; mk.header.stamp = RP_R._stamp(); mk.ns, mk.id, mk.type, mk.action = ns, i, typ, 0
+    mk.color.r, mk.color.g, mk.color.b, mk.color.a = map(float, rgba); mk.scale.x = mk.scale.y = mk.scale.z = float(scale); mk.pose.orientation.w = 1.0   # floats: Jazzy skips type checks, ints crash the serializer
+    return mk
+
+
+def _pt(v):
+    q = Point(); q.x, q.y, q.z = map(float, v); return q
+
+
+def rov_step():
+    """ROV pose from ArduSub, its chase camera, sonar ping, murky camera, DVL beams and the drone->ROV tasks."""
+    global SSTATE
+    try:
+        while True: SSTATE = json.loads(SSOCK.recv(65536))
+    except BlockingIOError:
+        pass
+    if "pos" not in SSTATE: return
+    p, rpy = np.array(SSTATE["pos"]), SSTATE["rpy"]
+    ROV_OP.Set(rov_matrix(p, rpy))
+    yw = math.pi / 2 - rpy[2]; fw = np.array([math.cos(yw), math.sin(yw), 0.0]); lf = np.array([-fw[1], fw[0], 0.0])
+    look(rc_op, p - 2.2 * fw + 1.1 * lf + np.array([0, 0, 0.7]), p + 0.6 * fw)
+    if frame % 2 == 0:                                                              # multibeam ping
+        Ms = UsdGeom.Xformable(st.GetPrimAtPath(ROV_SON)).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        polar, pts = SON.ping(a_sd.get_data(), a_sn.get_data(), np.array(Ms.ExtractRotationMatrix()).T, np.array(Ms.ExtractTranslation()))
+        if polar is not None:
+            ROV_IMG[1] = SON.fan(polar); SONAR_N[0] += len(pts)
+            if ROS:
+                if len(pts): RP_R.map_extend(pts[::3])
+                RP_R.image("/rov/sonar/image", ROV_IMG[1], "rov/sonar")
+    if frame % 3 == 0:                                                              # low-light camera through turbid water
+        rgb, dd = np.asarray(a_rrgb.get_data()), np.asarray(a_rdep.get_data(), np.float32)
+        if rgb.size and dd.size:
+            ROV_IMG[0] = murk(rgb[:, :, :3], dd, -p[2]) if p[2] < -0.05 else np.ascontiguousarray(rgb[:, :, :3])
+            if ROS: RP_R.image("/rov/camera", ROV_IMG[0], "rov/camera")
+    if not ROS: return
+    _, q_, Mb_ = pose_of("/World/ROV")
+    est = np.array(SSTATE["est"]) if SSTATE.get("est") else p
+    RP_R.pose(est, q_); RP_T.pose(p, q_)
+    if frame % 6 == 0:
+        for child, pth in (("rov/sonar", ROV_SON), ("rov/camera", ROV_CAM)):
+            RP_R.sensor_tf(child, *rel_pose(pose_of(pth)[2], Mb_))
+        dv = SSTATE.get("dvl", {}); ma = MarkerArray(); alt = float(dv.get("alt", 0.0) or 0.0)
+        beams = _mk("dvl", 0, Marker.LINE_LIST, (0.2, 1.0, 0.4, 0.9) if dv.get("lock") else (1, 0.2, 0.2, 0.9), 0.025)
+        for k_ in range(4):                                                         # Janus array, 4 beams 22.5 deg off vertical
+            az = yw + math.radians(45 + 90 * k_); L_ = alt / math.cos(math.radians(22.5))
+            e_ = est + L_ * np.array([math.sin(math.radians(22.5)) * math.cos(az), math.sin(math.radians(22.5)) * math.sin(az), -math.cos(math.radians(22.5))])
+            beams.points += [_pt(est), _pt(e_)]
+        ma.markers.append(beams); PUB_BEAMS.publish(ma)
+    if frame % 30 == 0:
+        ma = MarkerArray()
+        for i_, did in enumerate(SSTATE.get("flagged", [])):
+            d_ = DEF_BY_ID.get(did)
+            if not d_: continue
+            tgt_ = RT.waterline_task(d_)[0]; active = did in SSTATE.get("tasks", [])
+            ln = _mk("coop", 2 * i_, Marker.LINE_STRIP, (1.0, 0.55, 0.0, 1.0) if active else (0.2, 0.9, 1.0, 1.0), 0.06)
+            ln.points = [_pt(d_["position"]), _pt(tgt_)]; ma.markers.append(ln)
+            tx = _mk("coop", 2 * i_ + 1, Marker.TEXT_VIEW_FACING, (1, 1, 1, 1), 0.45)
+            tx.pose.position = _pt(np.asarray(tgt_) + np.array([0, 0, -0.5])); tx.text = f"drone saw {did} {d_['type']} -> ROV {'diving' if active else 'inspected'}"
+            ma.markers.append(tx)
+        PUB_COOP.publish(ma)
+        e_ = np.linalg.norm(est[:2] - p[:2]); dv = SSTATE.get("dvl", {})
+        RP_R.status(f"ArduSub {SSTATE.get('mode')} {SSTATE.get('label')}  depth {-p[2]:.1f} m  DVL alt {dv.get('alt', 0):.2f} m lock {dv.get('lock')}  nav err {e_:.2f} m")
+    RP_R.spin(); RP_T.spin()
 
 
 def pose_of(path):
@@ -560,6 +693,22 @@ if not HEADLESS:
                 with ui.VStack():
                     ui.Label("Ouster OS0-128 lidar map (side view)", height=18); ui.ImageWithProvider(pv_map, width=470, height=232)
             HUD = ui.Label("", height=120, style={"font_size": 18, "color": 0xFFE8F0FF})
+    if SUB:
+        pv_rcam, pv_son = ui.ByteImageProvider(), ui.ByteImageProvider()
+        rwin = ui.Window("BlueROV2 Heavy: camera, multibeam sonar, DVL", width=1000, height=820)
+        with rwin.frame:
+            with ui.VStack(spacing=4):
+                with ui.HStack(height=330):
+                    with ui.VStack():
+                        ui.Label("Low-light camera (turbid Charles River, Lumens on)", height=18); ui.ImageWithProvider(pv_rcam, width=560, height=315)
+                    with ui.VStack():
+                        ui.Label("Multibeam imaging sonar 130 deg, 12 m", height=18); ui.ImageWithProvider(pv_son, width=420, height=225)
+                HUD_R = ui.Label("", height=140, style={"font_size": 18, "color": 0xFFFFE0B0})
+        try:                                                                        # a second viewport following the ROV underwater
+            from omni.kit.viewport.utility import create_viewport_window
+            _vw = create_viewport_window("ROV chase (underwater)", width=900, height=520); _vw.viewport_api.camera_path = "/World/ROVChase"
+        except Exception as e_:
+            print("ROV viewport:", e_, flush=True)
 
 
 def show(prov, img):
@@ -669,6 +818,17 @@ while app.is_running():
                 RP.image("/camera/thermal", ib, "thermal_cam")
         if frame % 15 == 0: RP.status(f"GNSS {sats} sats HDOP {hdop} {fix}")
         RP.spin()
+    if SUB:
+        rov_step()
+        if not HEADLESS and frame % 3 == 0 and "pos" in SSTATE:
+            if ROV_IMG[0] is not None: show(pv_rcam, cv2.resize(ROV_IMG[0], (560, 315)))
+            if ROV_IMG[1] is not None: show(pv_son, cv2.resize(ROV_IMG[1], (420, 225)))
+            dv_ = SSTATE.get("dvl", {}); pr_ = np.array(SSTATE["pos"]); er_ = np.linalg.norm(np.array(SSTATE.get("est") or SSTATE["pos"])[:2] - pr_[:2])
+            HUD_R.text = (f"ArduSub {SSTATE.get('mode')} {'ARMED' if SSTATE.get('armed') else 'disarmed'}   item {SSTATE.get('item')}: {SSTATE.get('label')}\n"
+                          f"Depth {-pr_[2]:4.1f} m   DVL altitude {dv_.get('alt', 0):4.2f} m   bottom lock {'YES' if dv_.get('lock') else 'NO'}\n"
+                          f"DVL velocity (fwd, right, down) {np.round(dv_.get('vel', [0, 0, 0]), 2)} m/s   nav error vs truth {er_:4.2f} m (no GPS)\n"
+                          f"Drone-flagged waterline defects: {SSTATE.get('flagged', [])}   open ROV tasks: {SSTATE.get('tasks', [])}\n"
+                          f"Sonar returns so far: {SONAR_N[0]:,}")
     if PROF:
         PROF_T.append((_T1 - _T0, _T2 - _T1, time.perf_counter() - _T2))
         if len(PROF_T) == 90: print("PROF render/sensors/ros ms", np.round(1000 * np.mean(PROF_T, 0), 1), "max", np.round(1000 * np.max(PROF_T, 0), 1), flush=True); PROF_T.clear()
@@ -697,4 +857,5 @@ while app.is_running():
     if HEADLESS and frame > int(os.environ.get("FRAMES", "100000")): break
 tel.close()
 if ROS: RP.close()
+if ROS and SUB: RP_R.close(); RP_T.close()
 app.close()

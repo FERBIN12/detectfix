@@ -148,4 +148,5 @@ while True:
         print("AP:", r.text, flush=True)
     state["t"] = time.time()
     if tp in ("LOCAL_POSITION_NED", "ATTITUDE"):
-        out.sendto(json.dumps(state).encode(), ("127.0.0.1", 15000))
+        msg = json.dumps(state).encode()
+        out.sendto(msg, ("127.0.0.1", 15000)); out.sendto(msg, ("127.0.0.1", 15002))   # Isaac + the ROV coordinator
