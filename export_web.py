@@ -280,6 +280,7 @@ def decode_bag(bag_dir: Path):
     dvl_lock_total = 0
     under_deck_t = []                # drone timestamps while under the deck
     sats_seen = []
+    odom_hist = []
 
     # import the geo helper / under_deck test from route_dam
     geo = _route_dam()
@@ -304,10 +305,13 @@ def decode_bag(bag_dir: Path):
                 p = od.pose.pose.position
                 pos = [p.x, p.y, p.z]
                 ts_alt.append([tr, p.z])
-                # ground speed from the twist (ArduCopter velocity estimate)
-                v = od.twist.twist.linear
-                sp = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
-                ts_speed.append([tr, sp])
+                # ground speed from the pose itself over >= 1 s windows of bag time (the twist is a frame-to-frame
+                # difference inside the renderer and spikes when a frame stalls)
+                odom_hist.append((tr, pos))
+                while len(odom_hist) > 2 and odom_hist[-1][0] - odom_hist[1][0] >= 1.0: odom_hist.pop(0)
+                if odom_hist[-1][0] - odom_hist[0][0] >= 1.0:
+                    (t0_, p0_), (t1_, p1_) = odom_hist[0], odom_hist[-1]
+                    ts_speed.append([tr, math.dist(p0_, p1_) / (t1_ - t0_)])
                 drone_odom_prev = (tr, pos)
                 if geo and geo.under_deck(__import__("numpy").asarray(pos, float)):
                     under_deck_t.append(tr)

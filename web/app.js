@@ -8,7 +8,7 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 const $ = (s) => document.querySelector(s);
 async function getJSON(u) { const r = await fetch(u); if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); }
 const SEV_COLOR = { severe: 0xff5a5a, poor: 0xff9d42, fair: 0xffd24a, good: 0x4ade80 };
-const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString());
+const fmt = (n) => (n == null ? "—" : (typeof n === "string" && isNaN(Number(n)) ? n : Number(n).toLocaleString()));
 
 async function main() {
   let scene, kpis, coop, result, frames, gps, series, stats;
