@@ -639,6 +639,8 @@ while app.is_running():
         P = np.asarray(pc["data"], np.float32); npts = len(P)
         Rw = np.array(UsdGeom.Xformable(st.GetPrimAtPath(LID_PATH)).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
         Pw = P @ Rw[:3, :3] + Rw[3, :3]                                              # USD row-vector convention
+        dry = Pw[:, 2] > 0.12                                                         # calm water is specular: the lidar gets ~no return off it
+        P, Pw = P[dry], Pw[dry]; npts = len(P)
         if frame % 3 == 0: MAP.extend(Pw[:: 12].tolist())
     dep = np.asarray(a_dep.get_data(), np.float32)
     standoff = float(np.nanmedian(np.where(np.isfinite(dep[220:320, 400:560]), dep[220:320, 400:560], np.nan))) if dep.size else float("nan")

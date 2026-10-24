@@ -10,6 +10,7 @@ data/stills/*.png
 !data/stills/canal.png
 !data/stills/drone.png
 !data/stills/under.png
+!data/stills/rviz.png
 third_party/
 ref/
 WIN_PLAN.md
