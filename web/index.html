@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bridge Inspection — Command View</title>
+<title>Craigie Bridge Inspector — Drone + BlueROV2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/web/style.css" />
 <script type="importmap">
 {
@@ -15,65 +18,134 @@
 </script>
 </head>
 <body>
-  <header>
-    <div class="title">
-      <h1>Bridge Inspection</h1>
-      <span id="mission" class="mission">loading…</span>
+
+<!-- 1. HEADER -->
+<header>
+  <div class="brand">
+    <div class="logo">◈</div>
+    <div class="brand-text">
+      <h1>Craigie Bridge Inspector</h1>
+      <div class="sub">Charles River Dam, Boston · <span class="platforms">Drone (ArduCopter) + BlueROV2 (ArduSub)</span></div>
     </div>
+  </div>
+  <div class="header-right">
+    <div id="mission-id" class="mission-id">loading…</div>
     <div id="headline" class="headline">—</div>
-  </header>
+  </div>
+</header>
 
-  <main>
-    <section class="panel metrics">
-      <h2>Health</h2>
-      <div id="metrics" class="metric-grid"></div>
-      <h2 id="report-h">Report (AI draft)</h2>
-      <div id="report" class="report">—</div>
-    </section>
+<main>
 
-    <section class="panel viz">
-      <h2>3D LiDAR projection <small id="cloud-info"></small></h2>
-      <div id="viewer" class="viewer"><div class="hint">loading point cloud…</div></div>
-      <div class="legend">
-        <span><i class="dot severe"></i>severe</span>
-        <span><i class="dot poor"></i>poor</span>
-        <span><i class="dot fair"></i>fair</span>
-        <span><i class="dot cloud"></i>LiDAR map</span>
+  <!-- 2. KPI TILES -->
+  <section class="kpi-row" id="kpis"></section>
+
+  <!-- 3 + 4. HERO (3D) + SENSOR FEEDS side by side -->
+  <section class="hero-grid">
+    <div class="panel hero">
+      <div class="panel-head">
+        <h2>Combined 3D reconstruction</h2>
+        <div class="legend" id="hero-legend">
+          <span><i class="sw lidar"></i>LiDAR (above water)</span>
+          <span><i class="sw sonar"></i>Sonar (below water)</span>
+          <span><i class="sw dpath"></i>Drone path</span>
+          <span><i class="sw rpath"></i>ROV path (DVL)</span>
+          <span><i class="sw tpath"></i>ROV truth</span>
+          <span><i class="sw dabove"></i>defect</span>
+          <span><i class="sw dbelow"></i>underwater defect</span>
+        </div>
       </div>
-    </section>
+      <div id="viewer" class="viewer"><div class="hint">framing the canal…</div></div>
+      <div id="hover-label" class="hover-label"></div>
+    </div>
 
-    <section class="panel feed">
-      <h2>Inspection feed <small id="feed-info"></small></h2>
-      <div class="feed-mode">
-        <button id="mode-stills" class="on">Annotated stills</button>
-        <button id="mode-video">Video</button>
-      </div>
+    <div class="panel feeds">
+      <div class="panel-head"><h2>Sensor feeds</h2><small id="feed-count"></small></div>
+      <div class="tabs" id="feed-tabs"></div>
       <div class="feedwrap">
-        <img id="feed-img" alt="inspection frame" />
-        <video id="feed-video" controls loop muted></video>
-        <div id="feed-overlay" class="feed-overlay"></div>
+        <img id="feed-img" alt="sensor frame" />
       </div>
-      <div class="feed-controls" id="stills-controls">
-        <button id="prev">‹</button>
-        <button id="play">▶ play</button>
-        <button id="next">›</button>
-        <span id="feed-label" class="feed-label"></span>
+      <div class="feed-controls">
+        <button id="f-prev" title="previous">‹</button>
+        <button id="f-play">▶</button>
+        <button id="f-next" title="next">›</button>
+        <input type="range" id="f-scrub" min="0" max="0" value="0" />
+        <span id="f-label" class="mono"></span>
       </div>
-      <div id="filmstrip" class="filmstrip"></div>
-    </section>
+    </div>
+  </section>
 
-    <section class="panel table">
-      <h2>Detections</h2>
+  <!-- 5. COOPERATION TIMELINE -->
+  <section class="panel timeline-panel">
+    <div class="panel-head">
+      <h2>Drone ⇄ ROV cooperation</h2>
+      <small id="coop-summary"></small>
+    </div>
+    <div id="timeline" class="timeline"></div>
+    <div class="timeline-legend">
+      <span><i class="sw drone-ev"></i>drone flags defect at water line</span>
+      <span><i class="sw dive-ev"></i>ROV diving</span>
+      <span><i class="sw done-ev"></i>ROV inspection done</span>
+    </div>
+  </section>
+
+  <!-- 6. DETECTIONS + REPORT -->
+  <section class="two-col">
+    <div class="panel">
+      <div class="panel-head"><h2>Model detections</h2><small id="det-count"></small></div>
       <table id="det-table">
         <thead><tr>
-          <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th>
-          <th>Roughness</th><th>Change</th><th>Evidence</th>
+          <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th><th>Evidence</th>
         </tr></thead>
         <tbody></tbody>
       </table>
-    </section>
-  </main>
+    </div>
+    <div class="panel report-panel">
+      <div class="panel-head">
+        <h2>Inspection report</h2>
+        <span id="report-badge" class="badge"></span>
+      </div>
+      <div id="report" class="report">—</div>
+      <div class="signoff">
+        <span class="signoff-label">Status</span>
+        <div class="status-ctl" id="status-ctl">
+          <button data-s="draft" class="on">Draft</button>
+          <button data-s="review">Under review</button>
+          <button data-s="approved">Approved (PE sign-off)</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <script type="module" src="/web/app.js"></script>
+  <!-- 7. STATEWIDE TRIAGE -->
+  <section class="panel triage-panel">
+    <div class="panel-head">
+      <h2>Statewide underwater-inspection triage</h2>
+      <small>Massachusetts bridges · FHWA NBI 2022</small>
+    </div>
+    <div class="triage-stats" id="triage-stats"></div>
+    <table id="triage-table">
+      <thead><tr>
+        <th>#</th><th>Structure</th><th>Carries / over</th><th>Score</th>
+        <th>Cond.</th><th>Scour</th><th>Overdue</th><th>Why flagged</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+</main>
+
+<!-- 8. FOOTER -->
+<footer>
+  <div class="foot-col">
+    <strong>Data sources</strong>
+    <span>FHWA National Bridge Inventory 2022 · mission recorded in Isaac Sim + ArduPilot SITL (ArduCopter + ArduSub)</span>
+  </div>
+  <div class="foot-col limits">
+    <strong>Honest limits</strong>
+    <span>Simulation, not a live bridge. Thermal feed is simulated LWIR. Waterline defect flags use ground truth in this demo. Report text is deterministic (no LLM key present).</span>
+  </div>
+</footer>
+
+<script type="module" src="/web/app.js"></script>
 </body>
 </html>

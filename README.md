@@ -87,27 +87,58 @@ python annotate_frames.py --bag <BAG_DIR> --rgb-video
 
 ### Web dashboard
 
-A standalone web dashboard (themed to match the companion `navfix` dashboard)
-visualises a pipeline run: health metrics, the AI report (with per-claim
-detection-id citations), a detections table, a **3D LiDAR projection** (the
-accumulated world map rendered in-browser with Three.js and defect markers
-colour-coded by severity), and an **inspection feed** with two modes — annotated
-stills (masks/boxes drawn on) and the encoded H.264 video.
+A standalone, single-page web dashboard built for reviewers/judges. It presents
+the **whole two-robot mission** — drone (ArduCopter) above the water line and
+BlueROV2 (ArduSub) below it — entirely from the recorded bag, the maps, the
+ground-truth defect list, the cooperation log and the pipeline result. **Every
+number on the page is derived by `export_web.py`; nothing is hard-coded in the
+UI.** Sections:
+
+1. **Header** — Craigie Bridge · Charles River Dam, mission id, both platforms.
+2. **KPI tiles** — model detections; 13 ground-truth defects (9 above / 4 below);
+   4 waterline defects flagged → 4 inspected by the ROV; ROV navigation error vs.
+   ground truth at the end (DVL dead-reckoning drift); ROV distance travelled;
+   LiDAR points above / sonar points below; mission duration; drone waypoints.
+3. **3D reconstruction (hero)** — a Three.js (pinned `three@0.160.0`) view of the
+   combined map: height-coloured LiDAR above the translucent water plane (z = 0),
+   amber sonar below it, the drone path (cyan), the ROV's DVL estimate (amber)
+   and ground-truth track (thin white), ground-truth defect markers (red above /
+   magenta below, hover for labels), and dashed lines from each drone-flagged
+   waterline defect down to the ROV's dive point. The camera auto-frames the
+   canal on load and slowly auto-orbits until you interact.
+4. **Sensor feeds** — tabbed stills for Drone RGB (annotated), Thermal (simulated
+   LWIR), ROV camera (turbid) and ROV sonar (multibeam fan), ~60 evenly spaced
+   frames each, with play/scrub.
+5. **Cooperation timeline** — drone flags vs. ROV dive/inspect events on the
+   mission time axis.
+6. **Detections table + AI report** — per-detection class/confidence/severity with
+   evidence frame, the report with `[D-…]` citations (labelled honestly as
+   deterministic when no LLM key is set), and a clickable
+   Draft / Under review / Approved (PE sign-off) status control.
+7. **Statewide triage** — top 10 Massachusetts bridges by underwater-inspection
+   risk with reasons, plus the summary (5,252 bridges · 444 Poor · 778 needing
+   underwater inspection · 123 scour critical), from FHWA NBI 2022.
+8. **Footer** — data sources and honest-limits line.
 
 ```bash
-# 1. run the pipeline on the bag (writes out/bag_model.json)
-python run_bag.py --bag <BAG_DIR> --detector model --out out/bag_model.json
-# 2. annotate frames + encode video (web/data/annotated/, web/data/feed.mp4)
+# 1. run the pipeline on the drone+ROV bag (writes out/bag2_model.json)
+python run_bag.py --bag <BAG_DIR> --detector model --out out/bag2_model.json
+# 2. annotate the drone stills (optional; populates web/data/annotated/)
 python annotate_frames.py --bag <BAG_DIR> --conf 0.15
-# 3. export the web bundle (downsampled cloud + result + frame manifest)
-python export_web.py --bag <BAG_DIR> --result out/bag_model.json
-# 4. serve it
-python serve.py --bag <BAG_DIR> --port 8099
+# 3. build the dashboard bundle under web/data/ (clouds, paths, frames, triage)
+python export_web.py --bag <BAG_DIR> --result out/bag2_model.json --frames
+# 4. serve it (port 8099 by default; pass --bag to also serve original stills)
+python serve.py --port 8099
 # open http://127.0.0.1:8099
 ```
 
-The 3D view loads a voxel-downsampled copy of `lidar_map_world.npy` (full
-precision is kept for defect positions).
+`export_web.py` is the single build command: it voxel-downsamples both maps to
+≤ 250 k points each (compact Float32 binaries), decodes the bag once for the
+drone/ROV paths, the ROV navigation error and distance, and the cooperation
+events, extracts ~60 stills per sensor stream, copies the pipeline result, and
+runs the statewide triage. `serve.py` is the single serve command. The full
+bundle lives under `web/data/` (git-ignored). Reference screenshots are in
+`docs/dashboard_v2_top.png` and `docs/dashboard_v2_full.png`.
 Files: `serve.py`, `export_web.py`, `annotate_frames.py`, `web/*`.
 
 LiDAR geometry here is measured off the mission's accumulated world map
@@ -123,16 +154,19 @@ roughness.
 |---|---|
 | `.mcap` decode, time/pose index, retrace | real — runs on an actual rosbag2 bag |
 | Drone camera detector (YOLOv8-seg) | **real model inference** (Kapuni Model A) |
-| Sonar detector (ROV) | wired, **not exercised** — this bag is drone-only |
+| Sonar detector (ROV) | wired, **not exercised** — sonar imagery is recorded but no trained sonar model is run |
+| ROV navigation (DVL vs. truth), cooperation | real — measured from `/rov/odom`, `/rov/truth/odom`, `/coop/tasks` |
 | LiDAR geometry (surface roughness) | real, measured off the world-map point cloud |
 | Correlation + rule-based severity | real |
 | Report / dashboard LLM agents | **Claude by default**, falls back to deterministic text with no key |
-| Web dashboard (3D + feed + video) | real, served locally |
+| Web dashboard (3D + feeds + timeline + triage) | real, served locally |
 
 Honest caveats worth knowing: the model was trained on real photos, so on
 simulated imagery some detections are low-confidence (tune `--conf`); the bag
-carries no sonar, so the ROV half of the flow is untested; and the LLM report is
-deterministic text unless an `ANTHROPIC_API_KEY` is provided.
+records sonar imagery but no trained sonar defect model is run, so the 4
+underwater defects shown are ground truth surfaced via the cooperation log; the
+thermal feed is simulated LWIR; and the LLM report is deterministic text unless
+an `ANTHROPIC_API_KEY` is provided.
 
 Live mode decodes a real `.mcap` and loads real weights:
 
@@ -165,7 +199,7 @@ bridge-inspection/
   run.py              entry point for the demo/mock + generic live flow
   run_bag.py          run the flow on a real ROS2 .mcap drone mission
   annotate_frames.py  draw masks/boxes on frames + encode the H.264 video
-  export_web.py       build the web data bundle (cloud + result + frames)
+  export_web.py       build the web data bundle (clouds + paths + frames + triage)
   serve.py            stdlib HTTP server for the web dashboard
   config.json         non-secret runtime settings
   .env.example        secret template (Claude key, backend)

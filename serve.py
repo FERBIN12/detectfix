@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Serve the bridge-inspection dashboard.
+"""Serve the Craigie Bridge Inspector dashboard.
 
-    python serve.py --bag ../data/run_20261024_123507 [--port 8099]
+    python serve.py [--bag <BAG_DIR>] [--port 8099]
 
-Standard-library HTTP server (same style as dashboard/server/app.py). Serves:
+The single command that serves the dashboard built by export_web.py. Standard
+library only. Routes:
   /                      the dashboard UI (web/index.html)
-  /web/<file>            static UI assets + the exported data bundle (web/data/)
-  /frames/<NNNN.png>     inspection-frame stills from the bag (the "video feed")
+  /web/<path>            static UI assets + the exported bundle under web/data/
+                         (scene.json, kpis.json, *.bin, <stream>/NNNN.jpg, …)
+  /frames/<NNNN.png>     original/annotated inspection stills from the bag
+                         (prefers web/data/annotated/ when present)
 
-It expects export_web.py to have been run first (writes web/data/). If the
-bundle is missing it still serves the UI with an on-screen hint.
+Run export_web.py first; if the bundle is missing the UI still loads and shows
+an on-screen hint.
 """
 import argparse
 import sys
@@ -22,7 +25,8 @@ WEB = HERE / "web"
 
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
          ".css": "text/css; charset=utf-8", ".json": "application/json",
-         ".bin": "application/octet-stream", ".png": "image/png", ".ico": "image/x-icon",
+         ".bin": "application/octet-stream", ".png": "image/png",
+         ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".ico": "image/x-icon",
          ".mp4": "video/mp4"}
 
 
@@ -57,18 +61,13 @@ def make_handler(frames_dir: Path):
                 return self._send(404, b"not found", "text/plain")
             if path.startswith("/frames/"):
                 name = path[len("/frames/"):]
-                # Prefer the annotated copy (masks/boxes drawn) when it exists.
                 annotated = (WEB / "data" / "annotated" / name).resolve()
                 if (WEB / "data" / "annotated") in annotated.parents and annotated.is_file():
                     return self._send(200, annotated.read_bytes(), TYPES[".png"])
-                f = (frames_dir / name).resolve()
-                if frames_dir in f.parents and f.is_file() and f.suffix == ".png":
-                    return self._send(200, f.read_bytes(), TYPES[".png"])
-                return self._send(404, b"frame not found", "text/plain")
-            if path.startswith("/raw/"):  # the un-annotated original frame
-                f = (frames_dir / path[len("/raw/"):]).resolve()
-                if frames_dir in f.parents and f.is_file() and f.suffix == ".png":
-                    return self._send(200, f.read_bytes(), TYPES[".png"])
+                if frames_dir is not None:
+                    f = (frames_dir / name).resolve()
+                    if frames_dir in f.parents and f.is_file() and f.suffix == ".png":
+                        return self._send(200, f.read_bytes(), TYPES[".png"])
                 return self._send(404, b"frame not found", "text/plain")
             if path == "/favicon.ico":
                 return self._send(204, b"", TYPES[".ico"])
@@ -109,19 +108,19 @@ def make_handler(frames_dir: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Serve the bridge-inspection dashboard")
-    ap.add_argument("--bag", required=True, help="bag dir (for the inspection_frames stills)")
+    ap.add_argument("--bag", default=None, help="bag dir (for original inspection stills)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8099)
     args = ap.parse_args()
 
-    frames_dir = (Path(args.bag) / "inspection_frames").resolve()
-    if not (WEB / "data" / "result.json").exists():
-        print("warning: web/data/result.json missing - run export_web.py first", file=sys.stderr)
+    frames_dir = (Path(args.bag) / "inspection_frames").resolve() if args.bag else None
+    if not (WEB / "data" / "scene.json").exists():
+        print("warning: web/data/scene.json missing - run export_web.py first", file=sys.stderr)
 
     httpd = ThreadingHTTPServer((args.host, args.port), make_handler(frames_dir))
     httpd.daemon_threads = True
     shown = "localhost" if args.host in ("0.0.0.0", "") else args.host
-    print(f"Bridge-inspection dashboard on http://{shown}:{args.port}")
+    print(f"Craigie Bridge Inspector on http://{shown}:{args.port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
