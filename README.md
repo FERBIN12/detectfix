@@ -213,3 +213,11 @@ web/                Hyperion UI; web/data/ is generated and gitignored
 tests/              unittest suites (stdlib only)
 .kiro/              hooks + MCP settings
 ```
+
+
+## Simulation (`simulation/`)
+
+The drone + ROV mission this pipeline runs on was built at the event in `simulation/`: an NVIDIA Isaac Sim digital twin of
+the Charles River Dam crossing (Craigie Drawbridge, Boston) with a Holybro X500 flown by ArduCopter SITL and a BlueROV2
+Heavy flown by ArduSub SITL (no GPS, DVL navigation, multibeam sonar), drone-to-ROV waterline tasking, ROS 2/RViz2 and
+rosbag recording (`simulation/scripts/record_run.sh`). See `simulation/README.md` and `simulation/KIRO.md`.
