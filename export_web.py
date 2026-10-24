@@ -50,6 +50,44 @@ STREAMS = [
 # --------------------------------------------------------------------------- #
 # point clouds
 # --------------------------------------------------------------------------- #
+# Crop both maps to the canal + bridge corridor in the canal frame (from
+# route_dam: c along the canal, r across it) before downsampling. The far city
+# LiDAR tail otherwise swamps the 3D view.
+CROP_C = (-75.0, 40.0)   # along-canal extent (upstream approach .. downstream)
+CROP_R = 22.0            # half-width across the canal (|r| < CROP_R)
+CROP_Z = (-7.0, 14.0)    # vertical extent (below bed .. above the deck/towers)
+
+
+def _canal_axes():
+    """Return (C, R) unit vectors of the canal frame from route_dam, or None."""
+    import numpy as np
+    for cand in (Path.home() / "hackachusetts" / "sim",
+                 Path.home() / "hackachusetts_ext" / "hackachusetts" / "sim"):
+        if (cand / "route_dam.py").exists():
+            sys.path.insert(0, str(cand))
+            break
+    try:
+        import route_dam as p  # noqa: WPS433
+        return np.asarray(p.C, float), np.asarray(p.R, float)
+    except Exception as exc:  # pragma: no cover - environment dependent
+        print(f"  WARN could not import route_dam ({exc}); skipping canal crop")
+        return None
+
+
+def crop_to_canal(points, axes):
+    """Keep only points inside the canal/bridge corridor (canal-frame box)."""
+    import numpy as np
+    if axes is None:
+        return points
+    C, R = axes
+    p = np.asarray(points, dtype=np.float64)[:, :3]
+    c = p[:, 0] * C[0] + p[:, 1] * C[1]
+    r = p[:, 0] * R[0] + p[:, 1] * R[1]
+    mask = ((c > CROP_C[0]) & (c < CROP_C[1]) & (np.abs(r) < CROP_R)
+            & (p[:, 2] > CROP_Z[0]) & (p[:, 2] < CROP_Z[1]))
+    return p[mask]
+
+
 def voxel_downsample(points, voxel, max_points):
     """Keep one representative point per voxel cell, then cap the total."""
     import numpy as np
@@ -73,6 +111,7 @@ def export_clouds(map_dir, web_data, max_points):
     import numpy as np
     meta = {}
     samples = []  # downsampled points pooled for the robust frame box
+    axes = _canal_axes()
     sources = [
         ("lidar", "drone_lidar_world.npy", 0.12),
         ("sonar", "rov_sonar_world.npy", 0.10),
@@ -83,7 +122,9 @@ def export_clouds(map_dir, web_data, max_points):
             print(f"  WARN no {fname}; skipping {key} cloud")
             continue
         pts = np.load(str(npy))[:, :3]
-        ds = voxel_downsample(pts, voxel=voxel, max_points=max_points)
+        n_raw = len(pts)
+        cropped = crop_to_canal(pts, axes)
+        ds = voxel_downsample(cropped, voxel=voxel, max_points=max_points)
         (web_data / f"{key}.bin").write_bytes(ds.tobytes())
         samples.append(ds)
         mn = ds.min(axis=0).tolist()
@@ -92,9 +133,9 @@ def export_clouds(map_dir, web_data, max_points):
             "file": f"{key}.bin",
             "count": int(len(ds)),
             "bounds": {"min": [round(v, 3) for v in mn], "max": [round(v, 3) for v in mx]},
-            "source_count": int(len(pts)),
+            "source_count": int(n_raw),
         }
-        print(f"  {key}: {len(pts):,} -> {len(ds):,} pts (voxel {voxel} m)")
+        print(f"  {key}: {n_raw:,} -> crop {len(cropped):,} -> {len(ds):,} pts (voxel {voxel} m)")
 
     frame = None
     if samples:
@@ -467,6 +508,8 @@ def main() -> int:
         "bridge": bridge,
         "mission_id": result.get("mission_id", bag_dir.name),
         "water_z": WATER_Z,
+        "canal_axis": ([round(float(v), 4) for v in _canal_axes()[0]]
+                       if _canal_axes() is not None else [1.0, 0.0]),
         "clouds": cloud_meta,
         "bounds": scene_bounds(cloud_meta) if cloud_meta else None,
         "frame": frame,

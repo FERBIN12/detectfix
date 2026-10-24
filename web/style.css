@@ -143,7 +143,7 @@ main { padding: var(--gap) 28px 0; max-width: 1920px; margin: 0 auto; }
 
 /* ---- 5. timeline ---- */
 .timeline-panel { margin-bottom: var(--gap); }
-.timeline { position: relative; height: 92px; margin: 8px 4px 0;
+.timeline { position: relative; height: 112px; margin: 8px 4px 0;
             border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 .timeline .axis { position: absolute; left: 0; right: 0; top: 46px; height: 2px;
                   background: linear-gradient(90deg, var(--accent), var(--amber)); border-radius: 2px; opacity: .6; }
@@ -160,6 +160,10 @@ main { padding: var(--gap) 28px 0; max-width: 1920px; margin: 0 auto; }
 .timeline .ev .cap { font-size: 10px; color: var(--text-2); white-space: nowrap;
                      margin-top: 3px; transform: translateX(-42%); }
 .timeline .ev.drone .cap { margin-top: -2px; margin-bottom: 3px; }
+/* two-row stagger: close-together events alternate onto a second caption row */
+.timeline .ev.drone.row1 .cap { margin-top: -18px; }
+.timeline .ev.dive.row1 .cap,
+.timeline .ev.done.row1 .cap { margin-top: 18px; }
 .timeline-legend { display: flex; gap: 18px; margin-top: 10px; font-size: 11.5px; color: var(--text-2); }
 .timeline-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw.drone-ev { background: var(--accent); border-radius: 50%; }

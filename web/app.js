@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 // ---- helpers ---------------------------------------------------------------
 const $ = (s) => document.querySelector(s);
@@ -68,21 +71,20 @@ function renderTimeline(coop) {
   for (let t = 0; t <= span; t += 60) {
     html += `<div class="tick" style="left:${(t / span) * 100}%">${t}s</div>`;
   }
-  // events: classify by text; stagger captions to avoid overlap
+  // events: classify by text; stagger captions on two rows when close in time
   const evs = (coop.events || []).slice().sort((a, b) => a.t - b.t);
-  let lastDronePct = -99, lastRovPct = -99;
+  let lastT = -999, row = 0;
   for (const e of evs) {
     const pct = (e.t / span) * 100;
     let cls = "drone", cap = e.text;
     if (/diving/i.test(e.text)) { cls = "dive"; cap = e.text.replace(/.*saw /, "").replace(" -> ROV diving", " ↓"); }
     else if (/inspected|done/i.test(e.text)) { cls = "done"; cap = e.text.replace(/.*saw /, "").replace(" -> ROV inspected", " ✓"); }
     else { cap = e.text.replace(/.*saw /, "").replace(/ ->.*/, ""); }
-    // suppress caption if it would collide with the previous one in the same lane
-    let showCap = true;
-    if (cls === "drone") { showCap = pct - lastDronePct > 7; if (showCap) lastDronePct = pct; }
-    else { showCap = pct - lastRovPct > 7; if (showCap) lastRovPct = pct; }
-    html += `<div class="ev ${cls}" style="left:${pct}%" title="${e.t}s · ${e.text}">
-      <div class="dot"></div>${showCap ? `<div class="cap">${cap}</div>` : ""}</div>`;
+    // alternate caption row when this event is within 15 s of the previous one
+    if (e.t - lastT < 15) { row = row ? 0 : 1; } else { row = 0; }
+    lastT = e.t;
+    html += `<div class="ev ${cls} row${row}" style="left:${pct}%" title="${e.t}s · ${e.text}">
+      <div class="dot"></div><div class="cap">${cap}</div></div>`;
   }
   host.innerHTML = html;
 }
@@ -220,24 +222,38 @@ async function init3D(scene) {
   root.rotation.x = -Math.PI / 2;  // map Z-up world into Three's Y-up view
   three.add(root);
 
+  function worldToView(p) {
+    // apply root.rotation.x = -90deg: (x,y,z) -> (x, z, -y)
+    return new THREE.Vector3(p[0], p[2], -p[1]);
+  }
+
   // frame on the canal body (robust box), not the far LiDAR tail
-  const radius = Math.max(fr.span[0], fr.span[1]) * 0.62;
+  const spanC = Math.max(fr.span[0], fr.span[1]);   // along-canal length
+  const radius = spanC * 0.62;
+
+  // canal axis in world XY (downstream +). Fall back to the box's long axis.
+  let ax = scene.canal_axis || [1, 0];
+  const axLen = Math.hypot(ax[0], ax[1]) || 1;
+  ax = [ax[0] / axLen, ax[1] / axLen];
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   const targetV = worldToView(fr.center);
   controls.target.copy(targetV);
-  // auto-framed start pose: back off diagonally, lifted, looking at centre
-  camera.position.set(targetV.x + radius * 1.25, targetV.y + radius * 0.95, targetV.z + radius * 1.25);
+
+  // Oblique "drone shot" from downstream and above, looking back up the canal.
+  // Offset downstream along +canal axis, out to one side, and lifted up.
+  const cen = fr.center;
+  const camWorld = [
+    cen[0] + ax[0] * spanC * 0.70 - ax[1] * spanC * 0.28,
+    cen[1] + ax[1] * spanC * 0.70 + ax[0] * spanC * 0.28,
+    cen[2] + spanC * 0.52,
+  ];
+  camera.position.copy(worldToView(camWorld));
   controls.update();
   controls.minDistance = radius * 0.2;
   controls.maxDistance = radius * 6;
-
-  function worldToView(p) {
-    // apply root.rotation.x = -90deg: (x,y,z) -> (x, z, -y)
-    return new THREE.Vector3(p[0], p[2], -p[1]);
-  }
 
   // --- point clouds --------------------------------------------------------
   async function loadCloud(meta, mode) {
@@ -247,28 +263,37 @@ async function init3D(scene) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const col = new Float32Array(pos.length);
+    // use this cloud's own bounds so the ramp spans its full range
+    const cb = meta.bounds;
     if (mode === "lidar") {
-      // height ramp: deep steel-blue low -> bright cyan/white high
-      const z0 = b.min[2], zr = (b.max[2] - b.min[2]) || 1;
+      // vivid turbo height ramp: blue near the water → yellow/red up the towers
+      const z0 = cb.min[2], zr = (cb.max[2] - cb.min[2]) || 1;
       for (let i = 0; i < pos.length; i += 3) {
-        const t = Math.min(1, Math.max(0, (pos[i + 2] - z0) / zr));
-        col[i] = 0.18 + 0.55 * t;
-        col[i + 1] = 0.42 + 0.5 * t;
-        col[i + 2] = 0.55 + 0.42 * t;
+        const t = (pos[i + 2] - z0) / zr;
+        const c = turbo(t);
+        col[i] = c[0]; col[i + 1] = c[1]; col[i + 2] = c[2];
       }
     } else {
-      // sonar: warm amber, slightly darker deeper
-      const z0 = b.min[2], zr = (0 - b.min[2]) || 1;
+      // sonar depth ramp: bright amber just below water → deep red in the scour pit
+      const zTop = cb.max[2], zBot = cb.min[2];
+      const zr = (zTop - zBot) || 1;
       for (let i = 0; i < pos.length; i += 3) {
-        const t = Math.min(1, Math.max(0, (pos[i + 2] - z0) / zr));
-        col[i] = 0.7 + 0.3 * t;
-        col[i + 1] = 0.38 + 0.22 * t;
-        col[i + 2] = 0.12 + 0.05 * t;
+        // d = 0 at the surface, 1 at the deepest point
+        const d = Math.min(1, Math.max(0, (zTop - pos[i + 2]) / zr));
+        // amber (1.0,0.72,0.18) -> red (0.85,0.08,0.05)
+        col[i] = 1.0 - 0.15 * d;
+        col[i + 1] = 0.72 - 0.64 * d;
+        col[i + 2] = 0.18 - 0.13 * d;
       }
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    const mat = new THREE.PointsMaterial({ size: radius / 260, vertexColors: true, sizeAttenuation: true });
-    root.add(new THREE.Points(geo, mat));
+    const size = mode === "lidar" ? radius / 150 : radius / 110;
+    const mat = new THREE.PointsMaterial({
+      size, vertexColors: true, sizeAttenuation: true,
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.renderOrder = mode === "sonar" ? 1 : 0;
+    root.add(pts);
   }
   await loadCloud(scene.clouds.lidar, "lidar");
   await loadCloud(scene.clouds.sonar, "sonar");
@@ -277,44 +302,65 @@ async function init3D(scene) {
   const waterSize = Math.max(fr.span[0], fr.span[1]) * 1.15;
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(waterSize, waterSize),
-    new THREE.MeshBasicMaterial({ color: 0x1a6fa3, transparent: true, opacity: 0.16, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: 0x1a6fa3, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })
   );
   water.position.set(fr.center[0], fr.center[1], scene.water_z || 0);
+  water.renderOrder = 2;
   root.add(water);
   const waterGrid = new THREE.GridHelper(waterSize, 36, 0x2e7fb0, 0x16384a);
   waterGrid.rotation.x = Math.PI / 2;
   waterGrid.position.set(fr.center[0], fr.center[1], (scene.water_z || 0) + 0.02);
-  waterGrid.material.opacity = 0.2; waterGrid.material.transparent = true;
+  waterGrid.material.opacity = 0.14; waterGrid.material.transparent = true;
   root.add(waterGrid);
 
-  // --- paths ---------------------------------------------------------------
-  function addPath(pts, color, width, opacity) {
+  // --- paths (thick Line2, drawn on top with depthTest off) ----------------
+  const lineMaterials = [];
+  function addPath(pts, color, widthPx, opacity) {
     if (!pts || pts.length < 2) return;
-    const g = new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
-    root.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity: opacity ?? 1 })));
+    const flat = [];
+    for (const p of pts) { flat.push(p[0], p[1], p[2]); }
+    const g = new LineGeometry();
+    g.setPositions(flat);
+    const mat = new LineMaterial({
+      color, linewidth: widthPx, transparent: true, opacity: opacity ?? 1,
+      depthTest: false, dashed: false,
+    });
+    mat.resolution.set(host.clientWidth, host.clientHeight);
+    lineMaterials.push(mat);
+    const line = new Line2(g, mat);
+    line.computeLineDistances();
+    line.renderOrder = 10;
+    root.add(line);
   }
-  addPath(scene.drone_path, 0x4cc2ff, 2, 0.95);       // drone cyan
-  addPath(scene.rov_truth_path, 0xffffff, 1, 0.45);   // ROV ground truth, thin white
-  addPath(scene.rov_path, 0xff9d42, 2, 0.95);         // ROV DVL estimate, amber
+  addPath(scene.rov_truth_path, 0xffffff, 3.0, 0.65);  // ROV ground truth, white
+  addPath(scene.drone_path, 0x4cc2ff, 4.5, 0.98);      // drone cyan
+  addPath(scene.rov_path, 0xff9d42, 4.5, 0.98);        // ROV DVL estimate, amber
 
   // --- defect markers (GT) + hover labels ----------------------------------
   const markers = [];
-  const mkR = radius / 55;
+  const mkR = radius / 38;
   for (const d of scene.defects) {
     const color = d.underwater ? 0xd65cff : SEV_COLOR[sevName(d.severity)] || 0xff5a5a;
     const m = new THREE.Mesh(
-      new THREE.SphereGeometry(mkR, 18, 18),
+      new THREE.SphereGeometry(mkR, 20, 20),
       new THREE.MeshBasicMaterial({ color }));
     m.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    m.renderOrder = 12;
     m.userData = { label: `${d.id} · ${d.type} · sev ${d.severity}${d.underwater ? " (underwater)" : ""} · ${d.element}` };
     root.add(m);
     markers.push(m);
-    // halo ring
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(mkR * 1.5, mkR * 1.9, 24),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
-    ring.position.copy(m.position);
-    root.add(ring);
+    // soft glow: two translucent additive shells
+    for (const [s, op] of [[1.9, 0.30], [3.0, 0.14]]) {
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(mkR * s, 18, 18),
+        new THREE.MeshBasicMaterial({
+          color, transparent: true, opacity: op,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        }));
+      glow.position.copy(m.position);
+      glow.renderOrder = 11;
+      root.add(glow);
+    }
   }
 
   // --- drone-flag -> ROV dive lines ----------------------------------------
@@ -359,6 +405,7 @@ async function init3D(scene) {
   addEventListener("resize", () => {
     const w = host.clientWidth, h = host.clientHeight;
     camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+    for (const m of lineMaterials) m.resolution.set(w, h);
   });
 
   (function loop() {
@@ -378,6 +425,15 @@ async function init3D(scene) {
 function sevName(s) {
   if (typeof s === "string") return s;
   return s >= 3 ? "severe" : s === 2 ? "poor" : "fair";
+}
+
+// Turbo colormap (Google AI, polynomial approx) — perceptually vivid blue→red.
+function turbo(t) {
+  t = Math.min(1, Math.max(0, t));
+  const r = 0.13572138 + t * (4.61539260 + t * (-42.66032258 + t * (132.13108234 + t * (-152.94239396 + t * 59.28637943))));
+  const g = 0.09140261 + t * (2.19418839 + t * (4.84296658 + t * (-14.18503333 + t * (4.27729857 + t * 2.82956604))));
+  const b = 0.10667330 + t * (12.64194608 + t * (-60.58204836 + t * (110.36276771 + t * (-89.90310912 + t * 27.34824973))));
+  return [Math.min(1, Math.max(0, r)), Math.min(1, Math.max(0, g)), Math.min(1, Math.max(0, b))];
 }
 
 main();
