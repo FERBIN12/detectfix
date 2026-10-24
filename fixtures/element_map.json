@@ -1,0 +1,9 @@
+{
+  "_comment": "Bridge element reference (AASHTO MBEI / SNBI style). CORRELATE attaches the nearest element to each detection to produce structure-relative locations. Coordinates are metres in the bridge frame.",
+  "elements": [
+    {"element_id": "DECK-01", "face": "underside", "x": 12.0, "y": 3.0, "z": 8.0, "station": 12.0, "offset": 0.0},
+    {"element_id": "GIRDER-03", "face": "south", "x": 30.0, "y": 3.0, "z": 8.0, "station": 30.0, "offset": 1.5},
+    {"element_id": "PIER-01", "face": "upstream", "x": 12.0, "y": 3.0, "z": -4.0, "station": 12.0, "offset": 0.0},
+    {"element_id": "PIER-02", "face": "upstream", "x": 48.0, "y": 3.0, "z": -5.0, "station": 48.0, "offset": 0.0}
+  ]
+}

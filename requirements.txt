@@ -1,0 +1,27 @@
+# Bridge-inspection pipeline dependencies.
+#
+# The pipeline runs in MOCK mode with NONE of these installed (stdlib only),
+# which is the repo convention. Install these only for LIVE mode -- real .mcap
+# decoding, real model inference, and real point-cloud geometry.
+
+# --- live detection -----------------------------------------------------------
+ultralytics>=8.1.0          # YOLOv8-seg, camera defect detector
+huggingface_hub>=0.20.0     # auto-download the defect weights (Kapuni Model A)
+# Camera weights: iloveass/kompon-damage-severity-detection (best.pt, YOLOv8s-seg),
+#   downloaded automatically into weights/ on first live run.
+# KD-YOLOX-ViT (sonar, ROV side) installs from its own repo, not PyPI:
+#   https://github.com/remaro-network/KD-YOLOX-ViT
+
+# --- live LiDAR geometry ------------------------------------------------------
+open3d>=0.18.0              # point-cloud plane fit / deviation (pc_cr slot); pure-Python fallback exists
+numpy>=1.24.0
+
+# --- live rosbag decoding -----------------------------------------------------
+mcap>=1.1.0                 # read rosbag2 .mcap; JSON-sidecar fallback exists for offline
+mcap-ros2-support>=0.5.0    # ROS2 message decoding for real bags
+
+# --- secrets / config ---------------------------------------------------------
+python-dotenv>=1.0.0        # load ANTHROPIC_API_KEY etc. from .env (optional; shell env also works)
+
+# NOTE: the Claude + local-LLM clients use urllib from the stdlib, so no HTTP
+# client library is required for the report/dashboard agents.

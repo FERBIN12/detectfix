@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bridge Inspection — Command View</title>
+<link rel="stylesheet" href="/web/style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Bridge Inspection</h1>
+      <span id="mission" class="mission">loading…</span>
+    </div>
+    <div id="headline" class="headline">—</div>
+  </header>
+
+  <main>
+    <section class="panel metrics">
+      <h2>Health</h2>
+      <div id="metrics" class="metric-grid"></div>
+      <h2 id="report-h">Report (AI draft)</h2>
+      <div id="report" class="report">—</div>
+    </section>
+
+    <section class="panel viz">
+      <h2>3D LiDAR projection <small id="cloud-info"></small></h2>
+      <div id="viewer" class="viewer"><div class="hint">loading point cloud…</div></div>
+      <div class="legend">
+        <span><i class="dot severe"></i>severe</span>
+        <span><i class="dot poor"></i>poor</span>
+        <span><i class="dot fair"></i>fair</span>
+        <span><i class="dot cloud"></i>LiDAR map</span>
+      </div>
+    </section>
+
+    <section class="panel feed">
+      <h2>Inspection feed <small id="feed-info"></small></h2>
+      <div class="feed-mode">
+        <button id="mode-stills" class="on">Annotated stills</button>
+        <button id="mode-video">Video</button>
+      </div>
+      <div class="feedwrap">
+        <img id="feed-img" alt="inspection frame" />
+        <video id="feed-video" controls loop muted></video>
+        <div id="feed-overlay" class="feed-overlay"></div>
+      </div>
+      <div class="feed-controls" id="stills-controls">
+        <button id="prev">‹</button>
+        <button id="play">▶ play</button>
+        <button id="next">›</button>
+        <span id="feed-label" class="feed-label"></span>
+      </div>
+      <div id="filmstrip" class="filmstrip"></div>
+    </section>
+
+    <section class="panel table">
+      <h2>Detections</h2>
+      <table id="det-table">
+        <thead><tr>
+          <th>Element</th><th>Class</th><th>Sev</th><th>Conf</th>
+          <th>Roughness</th><th>Change</th><th>Evidence</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="module" src="/web/app.js"></script>
+</body>
+</html>

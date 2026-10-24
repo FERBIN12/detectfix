@@ -1,0 +1,15 @@
+{
+  "mode": "mock",
+  "mission_id": "M-001",
+  "retrace": {
+    "max_dt_s": 0.5,
+    "max_pose_m": 2.0
+  },
+  "live": {
+    "mcap_path": "fixtures/demo_mission.json",
+    "camera_weights": "weights/crack_yolov8_seg.pt",
+    "sonar_weights": "weights/kd_yolox_vit.pth",
+    "prior_dir": "fixtures/prior_cycle",
+    "data_dir": "fixtures"
+  }
+}
