@@ -226,7 +226,7 @@ cbox("/World/BoatPad/PadH3", float(np.dot(RT.LAUNCH[:2], RT.C)), float(np.dot(RT
 # ---------------------------------------------------------------- the Craigie drawbridge (steel bascule, DCR green) on granite abutment piers
 for side in (-1, 1):
     r0 = side * (RT.CANAL_W / 2 + 4.0)
-    cbox(f"/World/Craigie/Pier{side+1}", 0, r0, (WALL_B + RT.WALL_TOP + 0.3) / 2, RT.DECK_W + 6, 8.0, RT.WALL_TOP + 0.3 - WALL_B, M["gran"][0])
+    cbox(f"/World/Craigie/Pier{side+1}", 0, r0, (WALL_B + RT.WALL_TOP + 0.3) / 2, RT.DECK_W + 6, 8.0, RT.WALL_TOP + 0.3 - WALL_B, M["wallscan"])
     cbox(f"/World/Craigie/PierWet{side+1}", 0, side * (RT.CANAL_W / 2 - 0.005), 0.25, RT.DECK_W + 6, 0.02, 1.1, M["wetscan"])
 RIV = []                                                                     # rivet positions (instanced)
 for g, gc in enumerate(np.linspace(-RT.DECK_W / 2 + 0.8, RT.DECK_W / 2 - 0.8, 8)):                # riveted plate girders across the canal
@@ -577,8 +577,9 @@ if ROS:
 REC = os.environ.get("REC")                                                      # capture dir: chase cams + sensor feeds as timestamped JPEGs
 if REC:
     for d_ in ("dchase", "rchase", "drgb", "therm", "rcam", "sonar"): os.makedirs(os.path.join(REC, d_), exist_ok=True)
-    rp_dc = rep.create.render_product("/World/Chase", (1280, 720)); a_dc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_dc.attach([rp_dc])
-    rp_rcc = rep.create.render_product("/World/ROVChase", (1280, 720)); a_rcc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_rcc.attach([rp_rcc])
+    REC_S = set(os.environ.get("REC_STREAMS", "dchase,rchase,drgb,therm,rcam,sonar").split(","))
+    if "dchase" in REC_S: rp_dc = rep.create.render_product("/World/Chase", (1280, 720)); a_dc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_dc.attach([rp_dc])
+    if "rchase" in REC_S: rp_rcc = rep.create.render_product("/World/ROVChase", (1280, 720)); a_rcc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_rcc.attach([rp_rcc])
     REC_T0 = time.time(); REC_LOG = open(os.path.join(REC, "frames.csv"), "w"); REC_LOG.write("t,frame,stream\n")
 
 
@@ -821,6 +822,8 @@ while app.is_running():
         if car[3] < -80: car[3] = 80
         car[0].Set(car_pose(car[3], car[1]))
     back = pos - 6.5 * np.array([math.cos(yaw), math.sin(yaw), 0]) + np.array([1.5 * math.sin(yaw), -1.5 * math.cos(yaw), 1.6])
+    if RT.under_deck(pos) or RT.under_deck(back):                                   # under the bridge: stay below the steel
+        back = pos - 4.0 * np.array([math.cos(yaw), math.sin(yaw), 0]) + np.array([1.2 * math.sin(yaw), -1.2 * math.cos(yaw), 0.0]); back[2] = min(pos[2] + 0.4, RT.CLEAR - 0.5)
     look(c_op, back, pos + np.array([0, 0, -0.2]))
     _T0 = time.perf_counter()
     if HEADLESS and not MAV: rep.orchestrator.step(rt_subframes=1)              # recording: wait for every annotator
@@ -866,11 +869,11 @@ while app.is_running():
                 if REC and frame % 6 == 0: rec_save("therm", ib)
         if frame % 15 == 0: RP.status(f"GNSS {sats} sats HDOP {hdop} {fix}")
         RP.spin()
-    if REC and frame % 2 == 0:
-        rec_save("dchase", a_dc.get_data())
-        if SUB and "pos" in SSTATE: rec_save("rchase", a_rcc.get_data())
+    if REC and frame % int(os.environ.get("REC_EVERY", "2")) == 0:
+        if "dchase" in REC_S: rec_save("dchase", a_dc.get_data())
+        if SUB and "pos" in SSTATE and "rchase" in REC_S: rec_save("rchase", a_rcc.get_data())
         if frame % 4 == 0:
-            rec_save("drgb", a_rgb.get_data())
+            if "drgb" in REC_S: rec_save("drgb", a_rgb.get_data())
             if ROS and SUB:
                 if ROV_IMG[0] is not None: rec_save("rcam", ROV_IMG[0])
                 if ROV_IMG[1] is not None: rec_save("sonar", ROV_IMG[1])

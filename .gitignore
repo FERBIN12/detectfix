@@ -24,3 +24,9 @@ video/build/
 video/vo/
 video/*.mp4
 video/*.log
+video/capA/
+video/capB/
+video/build2/
+video/vo2/
+video/dash/
+video/music/
