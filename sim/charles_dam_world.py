@@ -125,7 +125,8 @@ def scan(name, tile_m, tint=(1.0, 1.0, 1.0), metal=0.0, bump=1.0):
 M.update(wallscan=scan("large_sandstone_blocks", 3.2, (0.78, 0.78, 0.76)), towerscan=scan("white_sandstone_blocks_02", 2.2, (0.95, 0.88, 0.76)),
          steelscan=scan("green_metal_rust", 1.6, (0.85, 1.0, 0.9), metal=0.5), asphaltscan=scan("asphalt_02", 4.0),
          pavescan=scan("concrete_pavement", 2.5), brickscan=scan("brick_wall_02", 2.5, (1.0, 0.92, 0.8)), rustscan=scan("rusty_metal_02", 1.0, metal=0.6),
-         wetscan=scan("large_sandstone_blocks", 3.2, (0.26, 0.28, 0.21), bump=1.4))
+         wetscan=scan("large_sandstone_blocks", 3.2, (0.26, 0.28, 0.21), bump=1.4),
+         fac_brick=scan("facade_brick", 7.0), fac_stone=scan("facade_stone", 7.0), fac_museum=scan("facade_museum", 9.0))   # window grids, 3.5 m storeys
 
 
 def cbox(path, c, r, z, sc, sr, sz, m, dyaw=0.0):
@@ -304,7 +305,7 @@ for k, rr in enumerate(np.linspace(-11, 11, 6)):
 
 # ---------------------------------------------------------------- Museum of Science (brick, clock tower, planetarium dome) and the Zakim beyond
 MS = (-RT.DECK_W / 2 - 70.0, -60.0)                                          # on the dam, upstream-west of the canal
-cbox("/World/Museum/Main", MS[0], MS[1], 11.0, 90, 50, 22, M["brickred"])
+cbox("/World/Museum/Main", MS[0], MS[1], 11.0, 90, 50, 22, M["fac_museum"])
 cbox("/World/Museum/Glass", MS[0] + 45.1, MS[1], 12.0, 0.3, 46, 16, M["glass"])
 cbox("/World/Museum/Clock", MS[0] + 20, MS[1] + 18, 22.0, 9, 9, 44, M["brickred"])
 cbox("/World/Museum/ClockFace", MS[0] + 24.6, MS[1] + 18, 38.0, 0.1, 5, 5, M["white"])
@@ -331,15 +332,15 @@ for t_, dy in (("N", 60), ("S", -60)):
             c = UsdGeom.Cylinder.Define(st, f"/World/Zakim/Cab{t_}{k}_{side+1}"); c.CreateRadiusAttr(0.12); c.CreateHeightAttr(float(ln))
             xf = UsdGeom.Xformable(c); xf.AddTranslateOp().Set(Gf.Vec3d(*mid))
             xf.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(Gf.Rotation(Gf.Vec3d(0, 0, 1), Gf.Vec3d(*((b - a) / ln))).GetQuat())); bind(c.GetPrim(), M["cable"])
-TD = RT.geo_to_world(42.36620, -71.06210); box("/World/City/TDGarden", (TD[0], TD[1], 18), (140, 110, 36), M["museum"])
-SKY_M = [M["brickred"], PR.omnipbr(st, "/World/M/bld3", (0.10, 0.13, 0.16), 0.08, 0.6), PR.omnipbr(st, "/World/M/bld4", (0.55, 0.57, 0.6), 0.2, 0.5), M["museum"]]
+TD = RT.geo_to_world(42.36620, -71.06210); box("/World/City/TDGarden", (TD[0], TD[1], 18), (140, 110, 36), M["fac_stone"])
+SKY_M = [M["fac_brick"], PR.omnipbr(st, "/World/M/bld3", (0.10, 0.13, 0.16), 0.08, 0.6), PR.omnipbr(st, "/World/M/bld4", (0.55, 0.57, 0.6), 0.2, 0.5), M["museum"]]
 DT = RT.geo_to_world(42.3570, -71.0600)
 for i in range(60):
     c = DT + np.array([rng.normal(0, 260), rng.normal(0, 200), 0]); h = float(rng.uniform(40, 200))
     box(f"/World/City/Tower{i}", (c[0], c[1], h / 2), (rng.uniform(25, 50), rng.uniform(25, 50), h), SKY_M[1 if h > 80 else int(rng.integers(0, 4))])
 for i in range(80):
     ang = rng.uniform(0, 6.283); r = rng.uniform(320, 520); c = np.array([r * math.cos(ang), r * math.sin(ang)]); h = float(rng.uniform(10, 30))
-    box(f"/World/City/Low{i}", (c[0], c[1], h / 2), (rng.uniform(20, 45), rng.uniform(20, 45), h), SKY_M[int(rng.choice([0, 0, 3, 2]))], rot_z=math.degrees(ang))
+    box(f"/World/City/Low{i}", (c[0], c[1], h / 2), (rng.uniform(20, 45), rng.uniform(20, 45), h), [M["fac_brick"], M["fac_stone"], M["fac_brick"], SKY_M[2]][int(rng.integers(0, 4))], rot_z=math.degrees(ang))
 
 # ---------------------------------------------------------------- defects (ground truth): canal walls and drawbridge steel
 DEFECTS = []
