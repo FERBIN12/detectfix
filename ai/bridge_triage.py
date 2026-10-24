@@ -39,7 +39,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_NBI_PATH = os.path.join(_REPO_ROOT, "data", "nbi", "MA22.txt")
 
 # "Today" for overdue calculations. The challenge framing is 2026-10.
-TODAY = date(2022, 3, 31)   # the NBI 2022 snapshot (latest item 93B date in the file is 03/22): "overdue" is as of the data, not today
+TODAY = date(2026, 10, 1)   # NOTE: "overdue" = time since the last underwater date IN THE 2022 FILE; newer dives are not in this file
 
 # Risk-score weights. They are summed, so the relative magnitude is what
 # matters; the final score is rescaled to 0..100 by the sum of weights used.
@@ -395,7 +395,7 @@ def _build_reasons(contrib, lowest_cond, scour_code, age, adt, over_info) -> lis
         if mo is None:
             phrases["overdue"] = "Underwater inspection due, no last-date on record"
         else:
-            phrases["overdue"] = f"Underwater inspection overdue by {mo} months"
+            phrases["overdue"] = f"Last underwater date in the 2022 file is overdue by {mo} months"
     elif over_info.get("required"):
         phrases["overdue"] = "Underwater inspection on schedule"
     else:
@@ -624,7 +624,7 @@ def main(argv=None):
         print(f"  Poor condition (BRIDGE_CONDITION P) : {s['poor_condition']:,}")
         print(f"  Underwater inspection required      : {s['underwater_inspection_required']:,}")
         print(f"    ...on schedule (not yet due)      : {s['underwater_due_on_schedule']:,}")
-        print(f"    ...overdue                        : {s['underwater_overdue']:,}")
+        print(f"    ...overdue vs Oct 2026 (2022 dates): {s['underwater_overdue']:,}  (newer dives are not in the 2022 file)")
         print(f"  Daily traffic on scour-critical     : {s['daily_traffic_on_scour_critical']:,} veh/day")
         print()
 

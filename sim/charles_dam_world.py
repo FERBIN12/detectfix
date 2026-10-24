@@ -384,6 +384,7 @@ def defect(kind, element, pos, severity, normal):
     else:                                                                           # efflorescence / rust streak: tall stain
         tang = np.cross(n, [0, 0, 1.0]); tang = tang / (np.linalg.norm(tang) + 1e-9)
         w, h = (0.5 + 0.2 * severity, 1.4 + 0.5 * severity) if kind == "efflorescence" else (0.18, 1.8 + 0.4 * severity)
+        if p[2] > 0: h = min(h, p[2] - 0.05)                                       # a stain above the water stops at the water line
         q = [p + n * 0.012 + tang * sx * w / 2 + np.array([0, 0, 1.0]) * sz for sx, sz in ((-1, 0), (1, 0), (0.6, -h), (-0.6, -h))]
         mesh(f"{root}/stain", q, [[0, 1, 2, 3]], M["efflor" if kind == "efflorescence" else "rust"])
     DEFECTS.append(dict(id=did, type=kind, severity=int(severity), element=element, position=[round(float(v), 3) for v in p],
@@ -766,7 +767,11 @@ def underwater_fog(on, density=None, falloff=None, color=None):
 
 
 FOG_D, FOG_F = float(os.environ.get("FOG_D", "0.35")), float(os.environ.get("FOG_F", "3.0"))
-underwater_fog(os.environ.get("FOG", "0") == "1")                                  # RTX height fog barely shows: off by default
+underwater_fog(os.environ.get("FOG", "0") == "1")
+if os.environ.get("REPLAY"):                                                        # film mode: re-fly the recorded mission at a locked 30 fps
+    import replay_film
+    replay_film.run(globals())
+    app.close(); sys.exit(0)                                  # RTX height fog barely shows: off by default
 if os.environ.get("UWTEST") == "1":                                                # look test: ROV chase underwater + drone chase above
     rp_t = rep.create.render_product("/World/ROVChase", (960, 540)); a_t = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_t.attach([rp_t])
     rp_t2 = rep.create.render_product("/World/Chase", (960, 540)); a_t2 = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_t2.attach([rp_t2])

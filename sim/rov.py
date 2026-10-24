@@ -38,6 +38,15 @@ def build_rov(st, root, PR):
         L.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.85)); UsdLux.ShapingAPI.Apply(L.GetPrim()).CreateShapingConeAngleAttr(40.0)
         UsdLux.ShapingAPI(L.GetPrim()).CreateShapingConeSoftnessAttr(0.4)
         lx = UsdGeom.Xformable(L); lx.AddTranslateOp().Set(Gf.Vec3d(0.25, sy, 0.10)); lx.AddRotateYOp().Set(-90.0)
+    son = UsdGeom.Cylinder.Define(st, root + "/SonarHead"); son.CreateRadiusAttr(0.042); son.CreateHeightAttr(0.07); son.CreateAxisAttr("X")   # multibeam head
+    UsdGeom.Xformable(son).AddTranslateOp().Set(Gf.Vec3d(0.10, 0.0, 0.165)); UsdShade.MaterialBindingAPI.Apply(son.GetPrim()).Bind(M["frame"])
+    sface = UsdGeom.Cylinder.Define(st, root + "/SonarFace"); sface.CreateRadiusAttr(0.036); sface.CreateHeightAttr(0.004); sface.CreateAxisAttr("X")
+    UsdGeom.Xformable(sface).AddTranslateOp().Set(Gf.Vec3d(0.137, 0.0, 0.165)); UsdShade.MaterialBindingAPI.Apply(sface.GetPrim()).Bind(M["orange"])
+    dvl = UsdGeom.Cylinder.Define(st, root + "/DVL"); dvl.CreateRadiusAttr(0.034); dvl.CreateHeightAttr(0.03)   # Water Linked A50-size puck
+    UsdGeom.Xformable(dvl).AddTranslateOp().Set(Gf.Vec3d(-0.04, 0.0, -0.125)); UsdShade.MaterialBindingAPI.Apply(dvl.GetPrim()).Bind(M["frame"])
+    for i_ in range(4):                                                     # its four transducer faces
+        a_ = math.radians(45 + 90 * i_); tf_ = UsdGeom.Cylinder.Define(st, f"{root}/DVLface{i_}"); tf_.CreateRadiusAttr(0.009); tf_.CreateHeightAttr(0.004)
+        UsdGeom.Xformable(tf_).AddTranslateOp().Set(Gf.Vec3d(-0.04 + 0.02 * math.cos(a_), 0.02 * math.sin(a_), -0.141)); UsdShade.MaterialBindingAPI.Apply(tf_.GetPrim()).Bind(M["orange"])
     cam = UsdGeom.Camera.Define(st, root + "/Camera")                         # low-light camera behind the dome, tilted 15 deg down
     cam.CreateFocalLengthAttr(10.0); cam.CreateHorizontalApertureAttr(20.0); cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 60))
     _cam_look(cam, (0.20, 0.0, 0.05), pitch_down=15.0)

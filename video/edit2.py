@@ -108,6 +108,8 @@ def kit_chart(d):
     d.text((1000, 360), "FHWA-tested sonar systems", font=F(BR, 40), fill=WHITE + (255,), anchor="ls")
     d.text((1000, 470), "$35k – $385k", font=F(BC, 120), fill=RED + (255,), anchor="ls")
     d.text((1000, 530), "for the sonar alone", font=F(BR, 36), fill=GREY + (255,), anchor="ls")
+    d.text((1000, 640), "Priced with a Ping360 scanning sonar; the sim's 130° multibeam", font=F(BR, 32), fill=GREY + (255,), anchor="ls")
+    d.text((1000, 684), "is a pricier class and is not in this total.", font=F(BR, 32), fill=GREY + (255,), anchor="ls")
     d.text((W // 2, HH - 70), "Blue Robotics list prices, Oct 2026 · FHWA-HIF-18-049 · before tether, laptop, boat, tax, shipping",
            font=F(BR, 26), fill=(130, 145, 160, 255), anchor="ms")
 
@@ -143,18 +145,19 @@ def kiro_card(d):
 def triage_card(d):
     card_bg(d, 225)
     d.text((160, 200), "STATEWIDE TRIAGE · 5,252 MASSACHUSETTS BRIDGES · NBI 2022", font=F(BC, 48), fill=CYAN + (255,), anchor="ls")
-    rows = [("1", "60.1", "N Washington St over the Charles River", "scour critical · 3/9"), ("2", "59.6", "Bridge St over the Mill River", "scour critical · 3/9"),
-            ("3", "58.9", "US 44 Winthrop St over the Palmer River", "scour critical · 3/9")]
+    rows = [("1", "80.1", "N Washington St over the Charles River", "scour critical"), ("2", "78.9", "US 44 Winthrop St over the Palmer River", "scour critical"),
+            ("3", "78.5", "Elm St over the Sudbury River", "scour critical")]
     for i, (r, s, b, why) in enumerate(rows):
         y = 330 + i * 110; col = AMBER if i == 0 else WHITE
         d.text((160, y), f"#{r}", font=F(BC, 80), fill=col + (255,), anchor="ls"); d.text((300, y), b, font=F(BR, 48), fill=col + (255,), anchor="ls")
         d.text((1380, y), f"{s}  ·  {why}", font=F(MONO, 30), fill=GREY + (255,), anchor="ls")
-    d.text((160, 760), "a mile from our site", font=F(BC, 60), fill=AMBER + (255,), anchor="ls")
+    d.text((160, 760), "#1 was a mile from our site. Boston has since replaced it (Bill Russell Bridge, 2023–25).", font=F(BC, 54), fill=AMBER + (255,), anchor="ls")
     d.text((160, 840), "Risk score from condition, scour rating, age and traffic. Transparent weights, one line of code to change.", font=F(BR, 34), fill=GREY + (255,), anchor="ls")
 
 
 def title_card(d):
     card_bg(d, 120)
+    d.text((W // 2, 300), "CRAIGIE BRIDGE INSPECTOR", font=F(BC, 54), fill=AMBER + (255,), anchor="ms")
     d.text((W // 2, 520), "ABOVE & BELOW", font=F(BC, 230), fill=WHITE + (255,), anchor="ms")
     d.text((W // 2, 610), "A drone and an underwater robot inspect one bridge, together", font=F(BR, 50), fill=WHITE + (255,), anchor="ms")
 
@@ -254,7 +257,11 @@ def seg(k, dur):
         ff(["-loop", "1", "-i", img, "-loop", "1", "-i", ov, "-filter_complex", fc, "-map", "[v]", "-frames:v", str(n)] + ENC + [out])
     elif kind == "clip":
         st, t0, sp, pips = a
-        ins = ["-ss", str(t0), "-i", B("..", "build", f"{st}.mp4")]; fc = f"[0:v]setpts=PTS/{sp},{BASE},{GRADE}[m];"; last = "m"
+        src_, t0_ = B("..", "build", f"{st}.mp4"), t0
+        for mi0, mil in ((0, 60), (212, 24)):                                   # motion-interpolated ROV ranges (true 30 fps)
+            mf = B("..", "build", f"{st}_mi_{mi0}.mp4")
+            if st == "capB_rchase" and mi0 <= t0 and t0 + dur * sp <= mi0 + mil and os.path.exists(mf): src_, t0_ = mf, t0 - mi0
+        ins = ["-ss", str(t0_), "-i", src_]; fc = f"[0:v]setpts=PTS/{sp},{BASE},{GRADE}[m];"; last = "m"
         for j, ps in enumerate(pips or []):
             ins += ["-ss", str(t0), "-i", B("..", "build", f"{ps}.mp4")]
             fc += f"[{j + 1}:v]setpts=PTS/{sp},scale=520:-2,pad=iw+6:ih+6:3:3:color=0x6ECDFF[p{j}];[{last}][p{j}]overlay=W-w-64:{110 + j * 320}[o{j}];"; last = f"o{j}"
