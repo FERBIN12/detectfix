@@ -77,3 +77,55 @@ def flight_plan():
     up = [(LAUNCH + np.array([0, 0, 2.5]), cw(0, 0, 3.0), "transit"), (cw(-52, rE_ := CANAL_W / 2 - STANDOFF, 2.0), cw(-52, CANAL_W / 2, 1.5), "transit")]
     back = [(cw(-55, 0, 2.5), cw(-70, 0, 1.0), "transit"), (LAUNCH + np.array([0, 0, 2.5]), LAUNCH, "transit")]
     return up + inspection_route() + back
+
+
+# ---------------------------------------------------------------- below the water line (BlueROV2 Heavy + DVL + sonar)
+BED_Z = -4.0                         # canal bed (lock canal dredged ~4 m)
+WALL_FOOT = -5.8                     # granite walls go below the bed onto timber/rubble footings
+SCOUR = dict(c=-15.5, r=CANAL_W / 2 - 1.2, depth=1.5, radius=3.4)   # scour pit at the east abutment toe (NBI channel 4/9)
+SUB_STANDOFF = 1.6
+SUB_START = cw(-57.0, -2.6, -0.15)   # BlueROV2 in the water beside the RIB (ArduSub SITL home, sitl/home_sub.txt)
+UNDERWATER_DEFECTS = [               # (kind, element, canal c, side +1 east / -1 west, z, severity)
+    ("scour", "abutment_E_toe", SCOUR["c"], 1, BED_Z - SCOUR["depth"] + 0.3, 3),
+    ("missing_block", "canal_wall_E_submerged", -29.0, 1, -2.2, 3),
+    ("crack", "canal_wall_E_submerged", -44.0, 1, -1.6, 2),
+    ("undermining", "canal_wall_W_footing", -8.0, -1, BED_Z + 0.15, 2),
+]
+
+
+def canal_cr(x, y):
+    return float(x * C[0] + y * C[1]), float(x * R[0] + y * R[1])
+
+
+def bed_z(x, y):
+    """canal bed height (m, world z) with the scour pit; gentle sand waves elsewhere."""
+    c, r = canal_cr(x, y)
+    z = BED_Z + 0.12 * math.sin(0.7 * c + 0.3 * r) + 0.06 * math.sin(1.9 * c - 1.1 * r)
+    d2 = (c - SCOUR["c"]) ** 2 / 1.6 + (r - SCOUR["r"]) ** 2
+    return z - SCOUR["depth"] * math.exp(-d2 / (SCOUR["radius"] ** 2 / 2.5))
+
+
+def face_yaw(side):
+    """world yaw (deg) that points the ROV's nose at the east (+1) or west (-1) wall."""
+    v = R * side
+    return math.degrees(math.atan2(v[1], v[0]))
+
+
+def sub_plan():
+    """ROV survey: dive, east wall face at 2.4 m depth, the scour pit, the footings under the bridge, the west wall, home."""
+    rE, rW = CANAL_W / 2 - SUB_STANDOFF, -(CANAL_W / 2 - SUB_STANDOFF)
+    p = [(cw(-56.0, -2.6, -1.5), HEADING_C, 3.0, "dive")]
+    p += [(cw(c, rE, -2.4), face_yaw(1), 2.0, "wall_E_submerged") for c in np.linspace(-52, -20, 6)]
+    p += [(cw(SCOUR["c"] - 1.0, SCOUR["r"] - 1.3, -3.6), face_yaw(1), 10.0, "scour_E_toe")]
+    p += [(cw(c, rE, -3.0), face_yaw(1), 2.0, "bridge_footing_E") for c in (-7.0, 1.0, 9.0)]
+    p += [(cw(10.0, 0.0, -3.0), face_yaw(-1), 0.0, "transit")]
+    p += [(cw(c, rW, -2.6), face_yaw(-1), 2.0, "wall_W_submerged") for c in np.linspace(8, -48, 7)]
+    p += [(cw(-56.0, -2.6, -1.0), HEADING_C, 0.0, "return"), (SUB_START, HEADING_C, 1e9, "surface")]
+    return p
+
+
+def waterline_task(defect):
+    """the drone saw a defect at the water line -> the ROV inspects the wall directly below it."""
+    p = np.asarray(defect["position"], float)
+    c, r = canal_cr(p[0], p[1]); side = 1 if r > 0 else -1
+    return (cw(c, side * (CANAL_W / 2 - 1.3), -0.9), face_yaw(side), 8.0, f"task {defect['id']}: below {defect['type']}")

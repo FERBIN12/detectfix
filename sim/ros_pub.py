@@ -103,31 +103,33 @@ class RosPub:
         Name of the underlying rclpy node.
     """
 
-    def __init__(self, node_name: str = "inspection_drone"):
+    def __init__(self, node_name: str = "inspection_drone", ns: str = "", frame_prefix: str = ""):
+        """ns: topic namespace (e.g. "/rov"); frame_prefix: TF frame prefix (e.g. "rov/") for a second vehicle."""
         if not rclpy.ok():
             rclpy.init()
         self.node = Node(node_name)
+        self.ns, self.odom_frame, self.base_frame = ns, frame_prefix + "odom", frame_prefix + "base_link"
 
         # --- publishers -----------------------------------------------------
         self._pub_tf = self.node.create_publisher(TFMessage, "/tf", 20)
         self._pub_tf_static = self.node.create_publisher(
             TFMessage, "/tf_static", _latched_qos(depth=1)
         )
-        self._pub_odom = self.node.create_publisher(Odometry, "/odom", 10)
-        self._pub_path = self.node.create_publisher(Path, "/path", 1)
+        self._pub_odom = self.node.create_publisher(Odometry, ns + "/odom", 10)
+        self._pub_path = self.node.create_publisher(Path, ns + "/path", 1)
         self._pub_map = self.node.create_publisher(
-            PointCloud2, "/map", _latched_qos(depth=1)
+            PointCloud2, ns + "/map", _latched_qos(depth=1)
         )
         self._pub_mission = self.node.create_publisher(
-            Path, "/mission", _latched_qos(depth=1)
+            Path, ns + "/mission", _latched_qos(depth=1)
         )
         self._pub_mission_mk = self.node.create_publisher(
-            MarkerArray, "/mission/markers", _latched_qos(depth=1)
+            MarkerArray, ns + "/mission/markers", _latched_qos(depth=1)
         )
         self._pub_defects = self.node.create_publisher(
             MarkerArray, "/defects", _latched_qos(depth=1)
         )
-        self._pub_status = self.node.create_publisher(String, "/drone/status", 10)
+        self._pub_status = self.node.create_publisher(String, (ns or "/drone") + "/status", 10)
 
         # per-topic PointCloud2 / Image publishers created lazily
         self._cloud_pubs: dict[str, "rclpy.publisher.Publisher"] = {}
@@ -176,13 +178,13 @@ class RosPub:
 
     def _publish_static_map_odom(self) -> None:
         tf = self._make_tf(
-            self._stamp(), "map", "odom", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)
+            self._stamp(), "map", self.odom_frame, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)
         )
         self._pub_tf_static.publish(TFMessage(transforms=[tf]))
 
-    def sensor_tf(self, child, pos, quat_xyzw, parent="base_link") -> None:
-        """Publish a dynamic TF for a sensor frame relative to ``parent``."""
-        tf = self._make_tf(self._stamp(), parent, child, pos, quat_xyzw)
+    def sensor_tf(self, child, pos, quat_xyzw, parent=None) -> None:
+        """Publish a dynamic TF for a sensor frame relative to ``parent`` (default: this vehicle's base_link)."""
+        tf = self._make_tf(self._stamp(), parent or self.base_frame, child, pos, quat_xyzw)
         self._pub_tf.publish(TFMessage(transforms=[tf]))
 
     # ------------------------------------------------------------------ pose
@@ -196,14 +198,14 @@ class RosPub:
         pos = np.asarray(pos, dtype=float).reshape(3)
 
         # dynamic TF odom -> base_link
-        tf = self._make_tf(stamp, "odom", "base_link", pos, quat_xyzw)
+        tf = self._make_tf(stamp, self.odom_frame, self.base_frame, pos, quat_xyzw)
         self._pub_tf.publish(TFMessage(transforms=[tf]))
 
         # odometry
         odom = Odometry()
         odom.header.stamp = stamp
-        odom.header.frame_id = "odom"
-        odom.child_frame_id = "base_link"
+        odom.header.frame_id = self.odom_frame
+        odom.child_frame_id = self.base_frame
         odom.pose.pose.position.x = float(pos[0])
         odom.pose.pose.position.y = float(pos[1])
         odom.pose.pose.position.z = float(pos[2])
