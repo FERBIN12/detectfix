@@ -574,6 +574,21 @@ if ROS:
     RP = RosPub()
     RP.mission(WP); RP.defects(DEFECTS)
     TRNG, last_pos = np.random.default_rng(7), None
+REC = os.environ.get("REC")                                                      # capture dir: chase cams + sensor feeds as timestamped JPEGs
+if REC:
+    for d_ in ("dchase", "rchase", "drgb", "therm", "rcam", "sonar"): os.makedirs(os.path.join(REC, d_), exist_ok=True)
+    rp_dc = rep.create.render_product("/World/Chase", (1280, 720)); a_dc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_dc.attach([rp_dc])
+    rp_rcc = rep.create.render_product("/World/ROVChase", (1280, 720)); a_rcc = rep.AnnotatorRegistry.get_annotator("LdrColor"); a_rcc.attach([rp_rcc])
+    REC_T0 = time.time(); REC_LOG = open(os.path.join(REC, "frames.csv"), "w"); REC_LOG.write("t,frame,stream\n")
+
+
+def rec_save(stream, img, rgb=True):
+    if img is None or not np.asarray(img).size: return
+    im = np.asarray(img)[:, :, :3]
+    cv2.imwrite(os.path.join(REC, stream, f"{frame:06d}.jpg"), im[:, :, ::-1] if rgb else im, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    REC_LOG.write(f"{time.time() - REC_T0:.3f},{frame},{stream}\n")
+
+
 SUB = os.environ.get("MAV") == "1" and os.environ.get("SUB", "1") == "1"         # the ROV (needs sub_bridge.py on UDP 15001)
 if SUB:
     import socket
@@ -848,8 +863,18 @@ while app.is_running():
                 id2c = {int(k): (v.get("class", "sky") if isinstance(v, dict) else str(v)) for k, v in sem["info"]["idToLabels"].items()}
                 _, ib = thermal.synth(ids[:, x0:x0 + cw_], id2c, np.nan_to_num(dep[:, x0:x0 + cw_], nan=1e4, posinf=1e4), t, rng=TRNG)
                 RP.image("/camera/thermal", ib, "thermal_cam")
+                if REC and frame % 6 == 0: rec_save("therm", ib)
         if frame % 15 == 0: RP.status(f"GNSS {sats} sats HDOP {hdop} {fix}")
         RP.spin()
+    if REC and frame % 2 == 0:
+        rec_save("dchase", a_dc.get_data())
+        if SUB and "pos" in SSTATE: rec_save("rchase", a_rcc.get_data())
+        if frame % 4 == 0:
+            rec_save("drgb", a_rgb.get_data())
+            if ROS and SUB:
+                if ROV_IMG[0] is not None: rec_save("rcam", ROV_IMG[0])
+                if ROV_IMG[1] is not None: rec_save("sonar", ROV_IMG[1])
+        REC_LOG.flush()
     if SUB:
         rov_step()
         if not HEADLESS and frame % 3 == 0 and "pos" in SSTATE:
